@@ -1,4 +1,5 @@
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 const {findUserByUsernameOrEmail, createUser} = require("../models/userModel");
 const { generateAccessToken, generateRefreshToken } = require("../utils/tokenGenerator");
 const pool = require("../config/db");
@@ -67,13 +68,13 @@ const login = async (req, res) => {
         const accessToken = generateAccessToken(user.id);
         const refreshToken = generateRefreshToken(user.id);
 
-        await pool.query("UPDATE users SET refersh_token = $1 WHERE id = $2", [refreshToken, user.id]);
+        await pool.query("UPDATE users SET refresh_token = $1 WHERE id = $2", [refreshToken, user.id]);
 
         res.cookie("accessToken", accessToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
             sameSite: "strict",
-            maxAge: "15*60*1000" 
+            maxAge: 15*60*1000 
         })
 
         res.cookie("refreshToken", refreshToken, {
@@ -81,7 +82,7 @@ const login = async (req, res) => {
             secure: process.env.NODE_ENV === "production",
             sameSite: "strict",
             path: "api/auth/refresh",
-            maxAge: "7*24*60*60*1000" 
+            maxAge: 7*24*60*60*1000 
         })
 
         res.status(200).json({
@@ -99,58 +100,68 @@ const login = async (req, res) => {
 
 const refresh = async(req, res) =>{
     try{
-        const refresh_token = req.cookies.refreshToken;
-        if(!refresh_token){
+        const refreshToken = req.cookies.refreshToken;
+        if(!refreshToken){
             return res.status(401).json({
-                message: "Refresh Token Missing"
-            });
+                message: "Refersh Token not found"
+            })
         }
-        const payload = jwt.verify(refresh_token, process.env.REFRESH_TOKEN_SECRET);
+
+        const payload = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
         const userResult = await pool.query(
-            "SELECT * FROM users WHERE id = $1 AND refresh_token = $2", [payload.id, refreshToken]
-        );
+            `SELECT * FROM users WHERE id = $1 AND refresh_token = $2`, [payload.id, refreshToken]
+        )
 
-        if (userResult.rows.length === 0) {
-      return res.status(403).json({ error: "Invalid or revoked refresh token" });
+        if(userResult.rows.length === 0){
+            return res.status(403).json({
+                message: "Invalid or revoked refresh token"
+            })
+        }
+
+        const newAccessToken = generateRefreshToken(payload.id);
+
+        res.cookie("accessToken", newAccessToken, {
+            httpOnly: true,
+            sameSite: "strict",
+            secure: process.env.NODE_ENV === "production",
+            maxAge: 1000*60*15
+        })
+
+        return res.status(200).json({
+            message: "Access Token successfully refreshed"
+        })
     }
-
-    const newAccessToken = generateAccessToken(payload.id);
-
-    res.cookie("accessToken", newAccessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 15 * 60 * 1000
-    });
-
-    res.status(200).json({ message: "Access token refreshed successfully" });
-    }catch(error){
+    catch(error){
         console.error("Refresh Error:", error.message);
         return res.status(403).json({ message: "Invalid or expired refresh token" });
     }
 }
 
 const logout = async (req, res) => {
-    try {
+    try{
         const refreshToken = req.cookies.refreshToken;
 
-        if (refreshToken) {
-        // Decode user ID to clear DB record (ignore verification errors if already expired)
-        const payload = jwt.decode(refreshToken);
-        if (payload && payload.id) {
-            await pool.query("UPDATE users SET refresh_token = NULL WHERE id = $1", [payload.id]);
-        }
+        if(refreshToken){
+            const payload = jwt.decode(refreshToken);
+            if(payload && payload.id){
+                await pool.query(`UPDATE users SET refresh_token = NULL WHERE id = $1`, [payload.id])
+            }
         }
 
-        // Clear both cookies in browser
         res.clearCookie("accessToken");
-        res.clearCookie("refreshToken", { path: "/api/auth/refresh" });
+        res.clearCookie("refreshToken", {path: "api/auth/refresh"});
 
-        res.status(200).json({ message: "Logged out successfully" });
-    } 
-    catch (err) {
-    res.status(500).json({ error: "Internal server error" });
+        res.status(200).json({
+            message: "Logout successful"
+        });
+    }catch(error){
+        console.error("Logout Error", error.message);
+        res.status(500).json({
+            message:"Internal Server Error"
+        });
     }
 }
+
+
 
 module.exports = {signup, login, refresh, logout};
