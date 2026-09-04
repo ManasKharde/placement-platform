@@ -68,7 +68,7 @@ const login = async (req, res) => {
         const accessToken = generateAccessToken(user.id);
         const refreshToken = generateRefreshToken(user.id);
 
-        await pool.query("UPDATE users SET refresh_token = $1 WHERE id = $2", [refreshToken, user.id]);
+        await pool.query("UPDATE users SET refresh_token = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2", [refreshToken, user.id]);
 
         res.cookie("accessToken", accessToken, {
             httpOnly: true,
@@ -144,7 +144,7 @@ const logout = async (req, res) => {
         if(refreshToken){
             const payload = jwt.decode(refreshToken);
             if(payload && payload.id){
-                await pool.query(`UPDATE users SET refresh_token = NULL WHERE id = $1`, [payload.id])
+                await pool.query(`UPDATE users SET refresh_token = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [payload.id])
             }
         }
 
@@ -162,6 +162,64 @@ const logout = async (req, res) => {
     }
 }
 
+const googleCallback = async (req, res) => {
+    try{
+        const user = req.user;
+        const accessToken = generateAccessToken(user);
+        const refreshToken = generateRefreshToken(user);
 
+        const tokenUpdatedResult = await pool.query(
+            `UPDATE users SET refresh_token = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, refresh_token`, [refreshToken, user.id]
+        )
+        console.log("Updated refresh token for id", tokenUpdatedResult.rows[0])
 
-module.exports = {signup, login, refresh, logout};
+        res.cookie("accesstoken", accessToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
+            maxAge: 1000*60*15
+        })
+
+        res.cookie("refreshToken", refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
+            maxAge: 1000*60*60*24*7
+        })
+
+        return res.status(200).json({
+            message: "Google Oauth Successful",
+            user: {id: user.id, username: user.username, email: user.email}
+        })
+    }
+    catch(error){
+        console.log("Google Callback Error", error);
+        return res.status(500).json({
+            message: "Internal Server Error"
+        })
+    }
+}
+
+const getCurrentUser = async (req, res) => {
+    try{
+        const userResult = await pool.query(
+            `SELECT id, username, email, auth_provider, created_at, updated_at FROM users WHERE id = $1;`, [req.user.id]
+        )
+        if(!userResult){
+            return res.status(401).json({
+                message:"User not found"
+            })
+        }
+        return res.status(200).json({
+            user: userResult.rows[0]
+        })
+    }
+    catch(error){
+        console.log("Error while getting user ", error);
+        return res.status(403).json({
+            message:"Internal Server Error"
+        })
+    }
+}
+
+module.exports = {signup, login, refresh, logout, googleCallback, getCurrentUser};
