@@ -87,9 +87,87 @@ const getTrackTopics = async (req, res) => {
     }
 }
 
+// controllers/preparationController.js
+
+// POST /api/user/preparation-path — Save or update user's selected path
+const selectUserPath = async (req, res) => {
+  const { pathId } = req.body;
+  const userId = req.user.id; // Populated by authenticateToken middleware
+
+  // 1. Basic input validation
+  if (!pathId || isNaN(pathId)) {
+    return res.status(400).json({ error: "A valid pathId integer is required." });
+  }
+
+  try {
+    // 2. Verify that the requested path actually exists and is active
+    const pathCheck = await pool.query(
+      "SELECT id, name, slug FROM preparation_paths WHERE id = $1 AND is_active = true",
+      [pathId]
+    );
+
+    if (pathCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Preparation path not found or inactive." });
+    }
+
+    // 3. Upsert into user_preparation_paths (insert or update on conflict)
+    const upsertQuery = `
+      INSERT INTO user_preparation_paths (user_id, path_id)
+      VALUES ($1, $2)
+      ON CONFLICT (user_id)
+      DO UPDATE SET path_id = EXCLUDED.path_id
+      RETURNING id, user_id, path_id, created_at;
+    `;
+
+    const result = await pool.query(upsertQuery, [userId, pathId]);
+
+    return res.status(200).json({
+      message: "Preparation path selected successfully.",
+      userPath: result.rows[0],
+      selectedPath: pathCheck.rows[0],
+    });
+  } catch (err) {
+    console.error("Error in selectUserPath:", err);
+    return res.status(500).json({ error: "Internal server error." });
+  }
+};
+
+// GET /api/user/preparation-path — Get currently active path for the user
+const getUserPath = async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+    const query = `
+      SELECT upp.id AS user_path_id, pp.id AS path_id, pp.name, pp.slug, pp.description, upp.created_at
+      FROM user_preparation_paths upp
+      JOIN preparation_paths pp ON upp.path_id = pp.id
+      WHERE upp.user_id = $1;
+    `;
+
+    const result = await pool.query(query, [userId]);
+
+    if (result.rows.length === 0) {
+      return res.status(200).json({
+        hasSelectedPath: false,
+        userPath: null,
+      });
+    }
+
+    return res.status(200).json({
+      hasSelectedPath: true,
+      userPath: result.rows[0],
+    });
+  } catch (err) {
+    console.error("Error in getUserPath:", err);
+    return res.status(500).json({ error: "Internal server error." });
+  }
+};
+
 module.exports = {
   getAllPaths,
   getPathById,
   getTrackTopics,
+  selectUserPath,
+  getUserPath,
 };
 
