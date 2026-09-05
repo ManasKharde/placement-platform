@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const pool = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
+const preparationRoutes = require("./routes/preparationRoutes");
 const cookieParser = require("cookie-parser");
 const passport = require("passport");
 require("./config/passport");
@@ -13,6 +14,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(passport.initialize());
 app.use("/api/auth", authRoutes);
+app.use("/api", preparationRoutes)
 
 app.get("/", async (req, res) => {
     try {
