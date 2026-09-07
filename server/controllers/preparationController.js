@@ -163,11 +163,118 @@ const getUserPath = async (req, res) => {
   }
 };
 
+// GET /api/user/roadmap — High-performance complete roadmap retrieval
+const getUserRoadmap = async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+    // Query 1: Fetch user's active path and mapped tracks in a single JOIN
+    const roadmapQuery = `
+      SELECT 
+        pp.id AS path_id,
+        pp.name AS path_name,
+        pp.slug AS path_slug,
+        pp.description AS path_description,
+        t.id AS track_id,
+        t.name AS track_name,
+        t.slug AS track_slug,
+        t.description AS track_description,
+        pt.track_order
+      FROM user_preparation_paths upp
+      JOIN preparation_paths pp ON upp.path_id = pp.id AND pp.is_active = true
+      JOIN path_tracks pt ON pp.id = pt.path_id
+      JOIN tracks t ON pt.track_id = t.id
+      WHERE upp.user_id = $1
+      ORDER BY pt.track_order ASC;
+    `;
+
+    const roadmapResult = await pool.query(roadmapQuery, [userId]);
+
+    if (roadmapResult.rows.length === 0) {
+      return res.status(200).json({
+        hasSelectedPath: false,
+        message: "No active preparation path selected.",
+        roadmap: null,
+      });
+    }
+
+    // Extract unique path metadata
+    const firstRow = roadmapResult.rows[0];
+    const pathInfo = {
+      id: firstRow.path_id,
+      name: firstRow.path_name,
+      slug: firstRow.path_slug,
+      description: firstRow.path_description,
+    };
+
+    // Build tracks array and extract track IDs for batching
+    const tracks = [];
+    const trackIds = [];
+
+    roadmapResult.rows.forEach((row) => {
+      trackIds.push(row.track_id);
+      tracks.push({
+        id: row.track_id,
+        name: row.track_name,
+        slug: row.track_slug,
+        description: row.track_description,
+        order: row.track_order,
+        topics: [],
+      });
+    });
+
+    // Query 2: Batch fetch ALL topics for ALL tracks in ONE query
+    const topicsQuery = `
+      SELECT 
+        top.id,
+        top.name,
+        top.slug,
+        top.description,
+        tt.track_id,
+        tt.topic_order
+      FROM topics top
+      JOIN track_topics tt ON top.id = tt.topic_id
+      WHERE tt.track_id = ANY($1::int[])
+      ORDER BY tt.track_id ASC, tt.topic_order ASC;
+    `;
+
+    const topicsResult = await pool.query(topicsQuery, [trackIds]);
+
+    // Map topics to their respective tracks using O(N) hash map lookup
+    const trackMap = new Map(tracks.map((t) => [t.id, t]));
+
+    topicsResult.rows.forEach((topic) => {
+      const track = trackMap.get(topic.track_id);
+      if (track) {
+        track.topics.push({
+          id: topic.id,
+          name: topic.name,
+          slug: topic.slug,
+          description: topic.description,
+          order: topic.topic_order,
+        });
+      }
+    });
+
+    return res.status(200).json({
+      hasSelectedPath: true,
+      roadmap: {
+        path: pathInfo,
+        tracks: tracks,
+      },
+    });
+  } catch (err) {
+    console.error("Error fetching user roadmap:", err);
+    return res.status(500).json({ error: "Internal server error." });
+  }
+};
+
 module.exports = {
   getAllPaths,
   getPathById,
   getTrackTopics,
   selectUserPath,
   getUserPath,
+  getUserRoadmap
 };
 
