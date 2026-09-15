@@ -166,6 +166,7 @@ const getUserPath = async (req, res) => {
 // GET /api/user/roadmap — High-performance complete roadmap retrieval
 const getUserRoadmap = async (req, res) => {
   const userId = req.user.id;
+  console.log("")
 
   try {
     // Query 1: Fetch user's active path and mapped tracks in a single JOIN
