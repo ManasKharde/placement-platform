@@ -7,6 +7,7 @@ const progressRoutes = require("./routes/progress");
 const resourceRoutes = require("./routes/resources");
 const dashboardRoutes = require("./routes/dashboard");
 const missionRoutes = require("./routes/missions");
+const studyTimeRoutes = require("./routes/studyTime");
 const cookieParser = require("cookie-parser");
 const passport = require("passport");
 require("./config/passport");
@@ -23,6 +24,7 @@ app.use("/api", progressRoutes);
 app.use("/api", resourceRoutes);
 app.use("/api", dashboardRoutes);
 app.use("/api", missionRoutes);
+app.use("/api", studyTimeRoutes);
 
 app.get("/", async (req, res) => {
     try {
