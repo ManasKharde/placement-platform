@@ -4,6 +4,7 @@ const pool = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const preparationRoutes = require("./routes/preparationRoutes");
 const progressRoutes = require("./routes/progress"); 
+const resourceRoutes = require("./routes/resources");
 const cookieParser = require("cookie-parser");
 const passport = require("passport");
 require("./config/passport");
@@ -17,6 +18,7 @@ app.use(passport.initialize());
 app.use("/api/auth", authRoutes);
 app.use("/api", preparationRoutes)
 app.use("/api", progressRoutes);
+app.use("/api", resourceRoutes);
 
 app.get("/", async (req, res) => {
     try {
