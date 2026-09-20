@@ -5,6 +5,7 @@ const authRoutes = require("./routes/authRoutes");
 const preparationRoutes = require("./routes/preparationRoutes");
 const progressRoutes = require("./routes/progress"); 
 const resourceRoutes = require("./routes/resources");
+const dashboardRoutes = require("./routes/dashboard");
 const cookieParser = require("cookie-parser");
 const passport = require("passport");
 require("./config/passport");
@@ -16,9 +17,10 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(passport.initialize());
 app.use("/api/auth", authRoutes);
-app.use("/api", preparationRoutes)
+app.use("/api", preparationRoutes);
 app.use("/api", progressRoutes);
 app.use("/api", resourceRoutes);
+app.use("/api", dashboardRoutes);
 
 app.get("/", async (req, res) => {
     try {

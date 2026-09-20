@@ -15,9 +15,18 @@ passport.use(
                 const email = profile.emails && profile.emails[0] ? profile.emails[0].value : null;
                 const username = profile.displayName || email.split("@")[0];
 
-                let userResult = await pool.query(
-                    `SELECT * FROM users WHERE auth_provider = $1 AND provider_id = $2`, ["google", googleId]
-                )
+                // Inside your Passport Google Strategy callback:
+                const photoUrl = profile.photos && profile.photos.length > 0 ? profile.photos[0].value : null;
+
+                // Example Upsert / Insert logic:
+                const userResult = await pool.query(
+                `INSERT INTO users (google_id, email, username, avatar_url)
+                VALUES ($1, $2, $3, $4)
+                ON CONFLICT (google_id) 
+                DO UPDATE SET avatar_url = EXCLUDED.avatar_url
+                RETURNING *;`,
+                [profile.id, profile.emails[0].value, profile.displayName, photoUrl]
+                );
 
                 if (userResult.rows.length > 0) {
                     return done(null, userResult.rows[0]);
