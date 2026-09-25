@@ -16,7 +16,7 @@ const signup = async (req, res) => {
         }
 
         //Checking if user already exists
-        const existingUser = await findUserByUsernameOrEmail(username, email);
+        const existingUser = (await findUserByUsernameOrEmail(username)) || (await findUserByUsernameOrEmail(email));
 
         if(existingUser) {
             return res.status(409).json({
@@ -28,12 +28,32 @@ const signup = async (req, res) => {
 
         const user = await createUser(
             username, email, hashedPassword, "local"
-        )
+        );
+
+        const accessToken = generateAccessToken(user);
+        const refreshToken = generateRefreshToken(user);
+
+        await pool.query("UPDATE users SET refresh_token = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2", [refreshToken, user.id]);
+
+        res.cookie("accesstoken", accessToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            maxAge: 15*60*1000 
+        });
+
+        res.cookie("refreshToken", refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            path: "/",
+            maxAge: 7*24*60*60*1000 
+        });
 
         return res.status(200).json({
             message: "User created successfully",
-            user
-        })
+            user: { id: user.id, username: user.username, email: user.email }
+        });
     }
     catch(error){
         console.error(error);
@@ -45,14 +65,16 @@ const signup = async (req, res) => {
 
 const login = async (req, res) => {
     try{
-        const {identifier, password} = req.body;
-        if(!identifier || !password){
+        const {identifier, email, username, password} = req.body;
+        const loginId = identifier || email || username;
+
+        if(!loginId || !password){
             return res.status(400).json({
-                message: "Provide valid username and email"
+                message: "Provide valid username or email and password"
             });
         }
 
-        const user = await findUserByUsernameOrEmail(identifier);
+        const user = await findUserByUsernameOrEmail(loginId);
         if(!user){
             return res.status(401).json({
                 message:"User not found"
@@ -65,29 +87,29 @@ const login = async (req, res) => {
             })
         }
 
-        const accessToken = generateAccessToken(user.id);
-        const refreshToken = generateRefreshToken(user.id);
+        const accessToken = generateAccessToken(user);
+        const refreshToken = generateRefreshToken(user);
 
         await pool.query("UPDATE users SET refresh_token = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2", [refreshToken, user.id]);
 
-        res.cookie("accessToken", accessToken, {
+        res.cookie("accesstoken", accessToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
+            sameSite: "lax",
             maxAge: 15*60*1000 
         })
 
         res.cookie("refreshToken", refreshToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
-            path: "api/auth/refresh",
+            sameSite: "lax",
+            path: "/",
             maxAge: 7*24*60*60*1000 
         })
 
         res.status(200).json({
             message: "Login Successful",
-            user: { id: user.id, username: user.username }
+            user: { id: user.id, username: user.username, email: user.email }
         })
 
     }catch(error){
@@ -118,11 +140,11 @@ const refresh = async(req, res) =>{
             })
         }
 
-        const newAccessToken = generateRefreshToken(payload.id);
+        const newAccessToken = generateAccessToken({ id: payload.id });
 
-        res.cookie("accessToken", newAccessToken, {
+        res.cookie("accesstoken", newAccessToken, {
             httpOnly: true,
-            sameSite: "strict",
+            sameSite: "lax",
             secure: process.env.NODE_ENV === "production",
             maxAge: 1000*60*15
         })
@@ -148,8 +170,8 @@ const logout = async (req, res) => {
             }
         }
 
-        res.clearCookie("accessToken");
-        res.clearCookie("refreshToken", {path: "api/auth/refresh"});
+        res.clearCookie("accesstoken");
+        res.clearCookie("refreshToken", { path: "/" });
 
         res.status(200).json({
             message: "Logout successful"
@@ -163,62 +185,73 @@ const logout = async (req, res) => {
 }
 
 const googleCallback = async (req, res) => {
-    try{
-        const user = req.user;
-        const accessToken = generateAccessToken(user);
-        const refreshToken = generateRefreshToken(user);
+  try {
+    const user = req.user;
 
-        const tokenUpdatedResult = await pool.query(
-            `UPDATE users SET refresh_token = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, refresh_token`, [refreshToken, user.id]
-        )
-        console.log("Updated refresh token for id", tokenUpdatedResult.rows[0])
+    // 1. Generate lightweight, clean JWTs
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
 
-        res.cookie("accesstoken", accessToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
-            maxAge: 1000*60*15
-        })
+    // 2. Save refresh token to Postgres using user.id
+    await pool.query(
+      `UPDATE users SET refresh_token = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+      [refreshToken, user.id]
+    );
 
-        res.cookie("refreshToken", refreshToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
-            maxAge: 1000*60*60*24*7
-        })
+    console.log(`Updated refresh token for user ID: ${user.id}`);
 
-        return res.status(200).json({
-            message: "Google Oauth Successful",
-            user: {id: user.id, username: user.username, email: user.email}
-        })
-    }
-    catch(error){
-        console.log("Google Callback Error", error);
-        return res.status(500).json({
-            message: "Internal Server Error"
-        })
-    }
-}
+    // 3. Set Access Token Cookie ("sameSite: lax" permits cross-site redirects)
+    res.cookie("accesstoken", accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 15 * 60 * 1000, // 15 minutes
+    });
+
+    // 4. Set Refresh Token Cookie
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    // 5. Redirect browser back to Vite React app
+    const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+    return res.redirect(`${FRONTEND_URL}/dashboard`);
+
+  } catch (error) {
+    console.error("Google Callback Error:", error);
+    const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+    return res.redirect(`${FRONTEND_URL}/login?error=auth_failed`);
+  }
+};
 
 const getCurrentUser = async (req, res) => {
-    try{
-        const userResult = await pool.query(
-            `SELECT id, username, email, auth_provider, created_at, updated_at FROM users WHERE id = $1;`, [req.user.id]
-        )
-        if(!userResult){
-            return res.status(401).json({
-                message:"User not found"
-            })
+    try {
+        const token = req.cookies.accesstoken;
+
+        if (!token) {
+        return res.status(401).json({ message: "Unauthenticated: No token provided" });
         }
-        return res.status(200).json({
-            user: userResult.rows[0]
-        })
-    }
-    catch(error){
-        console.log("Error while getting user ", error);
-        return res.status(403).json({
-            message:"Internal Server Error"
-        })
+
+        // Verify token
+        const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+
+        // Query user without password_hash or refresh_token
+        const userResult = await pool.query(
+        `SELECT id, username, email, created_at FROM users WHERE id = $1`,
+        [decoded.id]
+        );
+
+        if (userResult.rows.length === 0) {
+        return res.status(401).json({ message: "User not found" });
+        }
+
+        return res.status(200).json({ user: userResult.rows[0] });
+
+    } catch (error) {
+        return res.status(401).json({ message: "Invalid or expired token" });
     }
 }
 

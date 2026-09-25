@@ -3,6 +3,8 @@ const cors = require("cors");
 const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
 const passport = require("passport");
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpec = require("./config/swagger");
 require("dotenv").config();
 
 // Configuration & Middlewares
@@ -25,7 +27,7 @@ const app = express();
 // 1. HTTP Security Headers
 app.use(helmet());
 
-// 2. CORS Setup (Ensures HTTP-only cookies work with frontend)
+// 2. CORS Setup
 app.use(
   cors({
     origin: process.env.CLIENT_URL || "http://localhost:5173",
@@ -34,17 +36,31 @@ app.use(
 );
 
 // 3. Body Parser & Cookie Parser
-app.use(express.json({ limit: "10kb" })); // Prevents large payload DoS attacks
+app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
 
 // 4. Authentication Initialization
 app.use(passport.initialize());
 
-// 5. Rate Limiting Middlewares
+// 5. Mount Interactive Swagger Documentation Route
+app.use(
+  "/api-docs",
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerSpec, {
+    swaggerOptions: {
+      withCredentials: true,
+      requestInterceptor: (req) => {
+        req.credentials = "include";
+        return req;
+      },
+    },
+  })
+);
+// 6. Rate Limiting Middlewares
 app.use("/api/auth", authLimiter);
 app.use("/api", apiLimiter);
 
-// 6. System Health Check Endpoint
+// 7. System Health Check Endpoint
 app.get("/api/health", async (req, res) => {
   try {
     const result = await pool.query("SELECT NOW()");
@@ -65,10 +81,10 @@ app.get("/api/health", async (req, res) => {
 
 // Root Ping Route
 app.get("/", (req, res) => {
-  res.json({ message: "Placement Platform API is active" });
+  res.json({ message: "Placement Platform API is active. Documentation at /api-docs" });
 });
 
-// 7. API Routes
+// 8. API Routes
 app.use("/api/auth", authRoutes);
 app.use("/api", preparationRoutes);
 app.use("/api", progressRoutes);
@@ -77,17 +93,18 @@ app.use("/api", dashboardRoutes);
 app.use("/api", missionRoutes);
 app.use("/api", studyTimeRoutes);
 
-// 8. 404 Handler for Unmatched Endpoints
+// 9. 404 Handler for Unmatched Endpoints
 app.use((req, res) => {
   res.status(404).json({ error: "Endpoint not found" });
 });
 
-// 9. Centralized Error Handler (Must be registered last)
+// 10. Centralized Error Handler (Must be registered last)
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Interactive API Docs available at http://localhost:${PORT}/api-docs`);
 });
 
 module.exports = app;
