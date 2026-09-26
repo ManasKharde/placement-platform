@@ -9,9 +9,12 @@ require("dotenv").config();
 
 // Configuration & Middlewares
 const pool = require("./config/db");
+const { createOtpTable } = require("./config/migrate_otps");
+createOtpTable().catch((err) => console.error("OTP table migration failed:", err.message));
 require("./config/passport");
 const { apiLimiter, authLimiter } = require("./middleware/rateLimiter");
 const { errorHandler } = require("./middleware/errorHandler");
+
 
 // Route Imports
 const authRoutes = require("./routes/authRoutes");
