@@ -66,7 +66,8 @@ const signup = async (req, res) => {
 const login = async (req, res) => {
     try{
         const {identifier, email, username, password} = req.body;
-        const loginId = identifier || email || username;
+        const rawId = identifier || email || username || "";
+        const loginId = typeof rawId === "string" ? rawId.trim() : "";
 
         if(!loginId || !password){
             return res.status(400).json({
@@ -78,13 +79,20 @@ const login = async (req, res) => {
         if(!user){
             return res.status(401).json({
                 message:"User not found"
-            })
+            });
         }
+
+        if(!user.password_hash){
+            return res.status(401).json({
+                message: "This account was created with Google. Please sign in using 'Continue with Google'."
+            });
+        }
+
         const isPasswordCorrect = await bcrypt.compare(password, user.password_hash);
         if(!isPasswordCorrect){
             return res.status(401).json({
                 message: "Invalid id or password"
-            })
+            });
         }
 
         const accessToken = generateAccessToken(user);

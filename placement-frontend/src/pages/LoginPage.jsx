@@ -46,6 +46,18 @@ export const LoginPage = () => {
   const switchMode = (newMode) => {
     setMode(newMode);
     setError("");
+    if (newMode === "signin") {
+      setFormData((prev) => ({
+        ...prev,
+        emailOrUsername: prev.emailOrUsername || prev.email || prev.username,
+      }));
+    } else if (newMode === "signup") {
+      setFormData((prev) => ({
+        ...prev,
+        email: prev.email || (prev.emailOrUsername.includes("@") ? prev.emailOrUsername : ""),
+        username: prev.username || (!prev.emailOrUsername.includes("@") ? prev.emailOrUsername : ""),
+      }));
+    }
   };
 
   const handleGoogleLogin = () => {
@@ -56,21 +68,24 @@ export const LoginPage = () => {
 
   const validateForm = () => {
     if (mode === "signin") {
-      if (!formData.emailOrUsername.trim()) {
+      const loginId = formData.emailOrUsername.trim();
+      if (!loginId) {
         return "Please enter your email or username.";
       }
       if (!formData.password) {
         return "Please enter your password.";
       }
     } else {
-      if (!formData.username.trim()) {
+      const uname = formData.username.trim();
+      const mail = formData.email.trim();
+      if (!uname) {
         return "Please enter a username.";
       }
-      if (!formData.email.trim()) {
+      if (!mail) {
         return "Please enter your email address.";
       }
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(formData.email.trim())) {
+      if (!emailRegex.test(mail)) {
         return "Please enter a valid email address.";
       }
       if (!formData.password) {
@@ -96,10 +111,11 @@ export const LoginPage = () => {
 
     try {
       if (mode === "signin") {
+        const cleanLoginId = formData.emailOrUsername.trim();
         const response = await apiClient.post("/auth/login", {
-          identifier: formData.emailOrUsername.trim(),
-          email: formData.emailOrUsername.trim(),
-          username: formData.emailOrUsername.trim(),
+          identifier: cleanLoginId,
+          email: cleanLoginId,
+          username: cleanLoginId,
           password: formData.password,
         });
 
@@ -108,9 +124,11 @@ export const LoginPage = () => {
           navigate("/dashboard", { replace: true });
         }
       } else {
+        const cleanUsername = formData.username.trim();
+        const cleanEmail = formData.email.trim();
         const response = await apiClient.post("/auth/signup", {
-          username: formData.username.trim(),
-          email: formData.email.trim(),
+          username: cleanUsername,
+          email: cleanEmail,
           password: formData.password,
         });
 
@@ -118,9 +136,11 @@ export const LoginPage = () => {
           setUser(response.data.user);
           navigate("/dashboard", { replace: true });
         } else {
-          // If signup didn't return session immediately, auto-login
+          // If signup didn't return session cookies immediately, auto-login
           const loginRes = await apiClient.post("/auth/login", {
-            identifier: formData.email.trim() || formData.username.trim(),
+            identifier: cleanEmail || cleanUsername,
+            email: cleanEmail,
+            username: cleanUsername,
             password: formData.password,
           });
           if (loginRes.data?.user) {
@@ -270,6 +290,7 @@ export const LoginPage = () => {
                   <input
                     type="text"
                     name="username"
+                    autoComplete="username"
                     value={formData.username}
                     onChange={handleInputChange}
                     placeholder="johndoe"
@@ -291,6 +312,7 @@ export const LoginPage = () => {
                   <input
                     type="email"
                     name="email"
+                    autoComplete="email"
                     value={formData.email}
                     onChange={handleInputChange}
                     placeholder="you@example.com"
@@ -313,6 +335,7 @@ export const LoginPage = () => {
                 <input
                   type="text"
                   name="emailOrUsername"
+                  autoComplete="username"
                   value={formData.emailOrUsername}
                   onChange={handleInputChange}
                   placeholder="you@example.com or username"
@@ -348,6 +371,7 @@ export const LoginPage = () => {
               <input
                 type={showPassword ? "text" : "password"}
                 name="password"
+                autoComplete={mode === "signin" ? "current-password" : "new-password"}
                 value={formData.password}
                 onChange={handleInputChange}
                 placeholder={
