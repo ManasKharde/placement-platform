@@ -1,5 +1,5 @@
 const router = require("express").Router();
-const { getAllPaths, getPathById, getTrackTopics, selectUserPath, getUserPath, getUserRoadmap } = require("../controllers/preparationController");
+const { getAllPaths, getPathById, getTrackTopics, selectUserPath, getUserPath, getUserRoadmap, getUserReadiness } = require("../controllers/preparationController");
 const { authenticateToken } = require("../middleware/auth");
 
 /**
@@ -36,7 +36,10 @@ router.get("/preparation-paths/:id", authenticateToken, getPathById);
 router.get("/tracks/:id/topics", authenticateToken, getTrackTopics);
 
 router.post("/user/preparation-path", authenticateToken, selectUserPath);
+router.post("/user/preparation-path/switch", authenticateToken, selectUserPath);
 router.get("/user/preparation-path", authenticateToken, getUserPath);
 router.get("/user/roadmap", authenticateToken, getUserRoadmap);
+router.get("/user/readiness", authenticateToken, getUserReadiness);
+router.get("/readiness", authenticateToken, getUserReadiness);
 
 module.exports = router;

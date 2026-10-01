@@ -10,7 +10,23 @@ require("dotenv").config();
 // Configuration & Middlewares
 const pool = require("./config/db");
 const { createOtpTable } = require("./config/migrate_otps");
+const { seedPathsData } = require("./config/seed_paths");
+const { seedTopicContent } = require("./scripts/seed_topic_content");
+const { seedCompletePillars } = require("./scripts/seed_complete_pillars");
+const { migrateQuizzes } = require("./scripts/migrate_quizzes");
+const { seedQuizzes } = require("./scripts/seed_quizzes");
+const { seedCnQuiz } = require("./scripts/seed_cn_quiz");
+const { seedModularTracks } = require("./scripts/seed_modular_tracks");
 createOtpTable().catch((err) => console.error("OTP table migration failed:", err.message));
+seedPathsData().catch((err) => console.error("Paths seeding failed:", err.message));
+seedTopicContent().catch((err) => console.error("Topic content migration failed:", err.message));
+seedCompletePillars()
+  .then(() => seedModularTracks())
+  .catch((err) => console.error("Complete pillars / modular tracks migration failed:", err.message));
+migrateQuizzes()
+  .then(() => seedQuizzes())
+  .then(() => seedCnQuiz())
+  .catch((err) => console.error("Quiz migration/seeding failed:", err.message));
 require("./config/passport");
 const { apiLimiter, authLimiter } = require("./middleware/rateLimiter");
 const { errorHandler } = require("./middleware/errorHandler");
@@ -24,6 +40,7 @@ const resourceRoutes = require("./routes/resources");
 const dashboardRoutes = require("./routes/dashboard");
 const missionRoutes = require("./routes/missions");
 const studyTimeRoutes = require("./routes/studyTime");
+const quizRoutes = require("./routes/quiz");
 
 const app = express();
 
@@ -95,6 +112,7 @@ app.use("/api", resourceRoutes);
 app.use("/api", dashboardRoutes);
 app.use("/api", missionRoutes);
 app.use("/api", studyTimeRoutes);
+app.use("/api", quizRoutes);
 
 // 9. 404 Handler for Unmatched Endpoints
 app.use((req, res) => {

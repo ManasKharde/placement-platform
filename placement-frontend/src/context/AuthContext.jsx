@@ -21,6 +21,18 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     checkAuthStatus();
+
+    const handleSessionExpired = () => {
+      setUser(null);
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login";
+      }
+    };
+
+    window.addEventListener("auth:session-expired", handleSessionExpired);
+    return () => {
+      window.removeEventListener("auth:session-expired", handleSessionExpired);
+    };
   }, []);
 
   // Logout trigger

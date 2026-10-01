@@ -65,6 +65,7 @@ const signup = async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
+      path: "/",
       maxAge: 15 * 60 * 1000,
     });
 
@@ -138,6 +139,7 @@ const login = async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
+      path: "/",
       maxAge: 15 * 60 * 1000,
     });
 
@@ -325,7 +327,7 @@ const resetPassword = async (req, res) => {
 
 const refresh = async (req, res) => {
   try {
-    const refreshToken = req.cookies.refreshToken;
+    const refreshToken = req.cookies?.refreshToken || req.cookies?.refreshtoken;
     if (!refreshToken) {
       return res.status(401).json({
         message: "Refresh Token not found",
@@ -334,7 +336,7 @@ const refresh = async (req, res) => {
 
     const payload = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
     const userResult = await pool.query(
-      `SELECT * FROM users WHERE id = $1 AND refresh_token = $2`,
+      `SELECT id, username, email FROM users WHERE id = $1 AND refresh_token = $2`,
       [payload.id, refreshToken]
     );
 
@@ -344,17 +346,35 @@ const refresh = async (req, res) => {
       });
     }
 
-    const newAccessToken = generateAccessToken({ id: payload.id });
+    const user = userResult.rows[0];
+    const newAccessToken = generateAccessToken(user);
+    const newRefreshToken = generateRefreshToken(user);
+
+    // Refresh Token Rotation: Update in database
+    await pool.query(
+      "UPDATE users SET refresh_token = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+      [newRefreshToken, user.id]
+    );
 
     res.cookie("accesstoken", newAccessToken, {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
-      maxAge: 1000 * 60 * 15,
+      path: "/",
+      maxAge: 15 * 60 * 1000,
+    });
+
+    res.cookie("refreshToken", newRefreshToken, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     return res.status(200).json({
       message: "Access Token successfully refreshed",
+      user: { id: user.id, username: user.username, email: user.email },
     });
   } catch (error) {
     console.error("Refresh Error:", error.message);
@@ -364,7 +384,7 @@ const refresh = async (req, res) => {
 
 const logout = async (req, res) => {
   try {
-    const refreshToken = req.cookies.refreshToken;
+    const refreshToken = req.cookies?.refreshToken || req.cookies?.refreshtoken;
 
     if (refreshToken) {
       const payload = jwt.decode(refreshToken);
@@ -376,7 +396,7 @@ const logout = async (req, res) => {
       }
     }
 
-    res.clearCookie("accesstoken");
+    res.clearCookie("accesstoken", { path: "/" });
     res.clearCookie("refreshToken", { path: "/" });
 
     res.status(200).json({
@@ -408,6 +428,7 @@ const googleCallback = async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
+      path: "/",
       maxAge: 15 * 60 * 1000,
     });
 
@@ -415,6 +436,7 @@ const googleCallback = async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
+      path: "/",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 

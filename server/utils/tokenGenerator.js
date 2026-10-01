@@ -1,8 +1,9 @@
 // utils/tokenGenerator.js
+const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 
 const generateAccessToken = (user) => {
-  // Pass ONLY the user ID (and basic non-sensitive fields if required)
+  // Pass user ID
   return jwt.sign(
     { id: user.id },
     process.env.ACCESS_TOKEN_SECRET,
@@ -11,8 +12,9 @@ const generateAccessToken = (user) => {
 };
 
 const generateRefreshToken = (user) => {
+  // Include unique UUID (jti) so rotated tokens are cryptographically distinct
   return jwt.sign(
-    { id: user.id },
+    { id: user.id, jti: crypto.randomUUID() },
     process.env.REFRESH_TOKEN_SECRET,
     { expiresIn: "7d" }
   );

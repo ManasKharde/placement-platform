@@ -63,6 +63,50 @@ const getTodaysMissions = async (req, res) => {
       resourceCount: row.resource_count,
     }));
 
+    // If fewer than 3 uncompleted topics remain, supplement with other topics from path
+    if (missions.length < 3) {
+      const existingIds = missions.map((m) => m.topicId);
+      const supplementQuery = `
+        SELECT 
+          top.id AS topic_id,
+          top.name AS topic_name,
+          top.slug AS topic_slug,
+          top.description AS topic_description,
+          t.id AS track_id,
+          t.name AS track_name,
+          COALESCE(up.status, 'not_started') AS current_status,
+          COUNT(r.id)::int AS resource_count
+        FROM path_tracks pt
+        JOIN tracks t ON pt.track_id = t.id
+        JOIN track_topics tt ON t.id = tt.track_id
+        JOIN topics top ON tt.topic_id = top.id
+        LEFT JOIN user_progress up ON top.id = up.topic_id AND up.user_id = $1
+        LEFT JOIN resources r ON top.id = r.topic_id
+        WHERE pt.path_id = $2 AND NOT (top.id = ANY($3::int[]))
+        GROUP BY top.id, top.name, top.slug, top.description, t.id, t.name, pt.track_order, tt.topic_order, up.status
+        ORDER BY pt.track_order ASC, tt.topic_order ASC
+        LIMIT $4;
+      `;
+      const suppRes = await pool.query(supplementQuery, [
+        userId,
+        pathId,
+        existingIds.length > 0 ? existingIds : [0],
+        3 - missions.length,
+      ]);
+      suppRes.rows.forEach((row) => {
+        missions.push({
+          topicId: row.topic_id,
+          topicName: row.topic_name,
+          topicSlug: row.topic_slug,
+          description: row.topic_description,
+          trackId: row.track_id,
+          trackName: row.track_name,
+          status: row.current_status,
+          resourceCount: row.resource_count,
+        });
+      });
+    }
+
     return res.status(200).json({
       hasSelectedPath: true,
       count: missions.length,

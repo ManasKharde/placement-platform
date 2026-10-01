@@ -8,7 +8,8 @@ const getStudentDashboard = async (req, res) => {
     // 1. Fetch user profile + active preparation path
     const userResult = await pool.query(
       `SELECT u.id, u.username, u.email, u.avatar_url,
-              pp.id AS path_id, pp.name AS path_name, pp.slug AS path_slug
+              pp.id AS path_id, pp.name AS path_name, pp.slug AS path_slug,
+              upp.daily_hours, upp.daily_study_time_minutes
        FROM users u
        LEFT JOIN user_preparation_paths upp ON u.id = upp.user_id
        LEFT JOIN preparation_paths pp ON upp.path_id = pp.id AND pp.is_active = true
@@ -109,6 +110,8 @@ const getStudentDashboard = async (req, res) => {
           name: user.path_name,
           slug: user.path_slug,
         },
+        dailyHours: user.daily_hours || 2,
+        dailyStudyTimeMinutes: user.daily_study_time_minutes || 120,
         overallProgress: {
           totalTopics: totalPathTopics,
           completedTopics: completedPathTopics,

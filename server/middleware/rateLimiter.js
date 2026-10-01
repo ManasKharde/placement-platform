@@ -15,7 +15,11 @@ const authLimiter = rateLimit({
   max: process.env.NODE_ENV === "production" ? 30 : 200,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.path === "/me" || req.path === "/health",
+  skip: (req) =>
+    req.path === "/me" ||
+    req.path === "/health" ||
+    req.path === "/refresh" ||
+    req.path === "/refresh-token",
   message: { error: "Too many authentication attempts, please try again later." },
 });
 

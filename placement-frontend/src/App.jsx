@@ -1,9 +1,12 @@
 import React, { Suspense, lazy } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "./components/protected/ProtectedRoute";
+import { AppLayout } from "./components/layout/AppLayout";
 
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
+const RoadmapPage = lazy(() => import("./pages/RoadmapPage"));
+const TopicDetailPage = lazy(() => import("./pages/TopicDetailPage"));
 
 const LoadingFallback = () => (
   <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3">
@@ -26,9 +29,35 @@ export default function App() {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <DashboardPage />
+              <AppLayout>
+                <DashboardPage />
+              </AppLayout>
             </ProtectedRoute>
           }
+        />
+        <Route
+          path="/roadmap"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <RoadmapPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/topics/:topicId"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <TopicDetailPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/preparation-path"
+          element={<Navigate to="/roadmap" replace />}
         />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

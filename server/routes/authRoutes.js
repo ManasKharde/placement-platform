@@ -28,6 +28,7 @@ router.post("/verify-otp", validateVerifyOtp, verifyOtp);
 router.post("/reset-password", validateResetPassword, resetPassword);
 
 router.post("/refresh", refresh);
+router.post("/refresh-token", refresh);
 router.post("/logout", logout);
 router.get("/google", passport.authenticate("google", { scope: ["profile", "email"], session: false }));
 router.get(

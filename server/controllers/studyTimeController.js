@@ -1,21 +1,38 @@
 const pool = require("../config/db");
 
-// PUT /api/user/study-time — Set daily available study minutes
+// PUT /api/user/study-time — Set daily available study hours / minutes
 const setStudyTime = async (req, res) => {
   const userId = req.user.id;
-  const { dailyMinutes } = req.body;
+  const { dailyMinutes, dailyHours, daily_hours } = req.body;
 
-  if (!dailyMinutes || isNaN(dailyMinutes) || dailyMinutes <= 0) {
-    return res.status(400).json({ error: "Please provide a valid daily study time in minutes (> 0)." });
+  let minutes = null;
+  let hours = null;
+
+  if (dailyHours !== undefined || daily_hours !== undefined) {
+    const rawH = parseInt(dailyHours !== undefined ? dailyHours : daily_hours, 10);
+    if (isNaN(rawH) || rawH <= 0 || rawH > 16) {
+      return res.status(400).json({ error: "Please provide valid daily study hours between 1 and 16." });
+    }
+    hours = rawH;
+    minutes = hours * 60;
+  } else if (dailyMinutes !== undefined) {
+    const rawM = parseInt(dailyMinutes, 10);
+    if (isNaN(rawM) || rawM <= 0 || rawM > 960) {
+      return res.status(400).json({ error: "Please provide a valid daily study time in minutes (between 1 and 960)." });
+    }
+    minutes = rawM;
+    hours = Math.max(1, Math.round(minutes / 60));
+  } else {
+    return res.status(400).json({ error: "Please provide dailyHours (e.g., 1, 2, or 3) or dailyMinutes." });
   }
 
   try {
     const result = await pool.query(
       `UPDATE user_preparation_paths 
-       SET daily_study_time_minutes = $1 
-       WHERE user_id = $2 
-       RETURNING path_id, daily_study_time_minutes`,
-      [dailyMinutes, userId]
+       SET daily_study_time_minutes = $1, daily_hours = $2 
+       WHERE user_id = $3 
+       RETURNING path_id, daily_hours, daily_study_time_minutes`,
+      [minutes, hours, userId]
     );
 
     if (result.rows.length === 0) {
@@ -23,7 +40,8 @@ const setStudyTime = async (req, res) => {
     }
 
     return res.status(200).json({
-      message: "Daily study time updated successfully.",
+      message: "Daily study commitment updated successfully.",
+      dailyHours: result.rows[0].daily_hours,
       dailyStudyTimeMinutes: result.rows[0].daily_study_time_minutes,
     });
   } catch (err) {
@@ -39,7 +57,7 @@ const getPathPacing = async (req, res) => {
   try {
     // 1. Fetch user's active path & daily study target
     const pathResult = await pool.query(
-      `SELECT upp.path_id, upp.daily_study_time_minutes, pp.name AS path_name
+      `SELECT upp.path_id, upp.daily_hours, upp.daily_study_time_minutes, pp.name AS path_name
        FROM user_preparation_paths upp
        JOIN preparation_paths pp ON upp.path_id = pp.id
        WHERE upp.user_id = $1`,
@@ -53,7 +71,15 @@ const getPathPacing = async (req, res) => {
       });
     }
 
-    const { path_id: pathId, daily_study_time_minutes: dailyMinutes, path_name: pathName } = pathResult.rows[0];
+    const {
+      path_id: pathId,
+      daily_hours: userDailyHours,
+      daily_study_time_minutes: dailyMinutes,
+      path_name: pathName,
+    } = pathResult.rows[0];
+
+    const effectiveMinutes = dailyMinutes || (userDailyHours ? userDailyHours * 60 : 120);
+    const effectiveHours = userDailyHours || Math.round(effectiveMinutes / 60);
 
     // 2. Aggregate remaining resource time for uncompleted topics
     const timeQuery = `
@@ -74,12 +100,13 @@ const getPathPacing = async (req, res) => {
     const { remaining_minutes: remainingMinutes, remaining_topics: remainingTopics } = timeResult.rows[0];
 
     const remainingHours = (remainingMinutes / 60).toFixed(1);
-    const projectedDaysToComplete = dailyMinutes > 0 ? Math.ceil(remainingMinutes / dailyMinutes) : null;
+    const projectedDaysToComplete = effectiveMinutes > 0 ? Math.ceil(remainingMinutes / effectiveMinutes) : null;
 
     return res.status(200).json({
       hasSelectedPath: true,
       pathName,
-      dailyStudyTimeMinutes: dailyMinutes,
+      dailyHours: effectiveHours,
+      dailyStudyTimeMinutes: effectiveMinutes,
       pacing: {
         remainingTopics,
         remainingMinutes,
