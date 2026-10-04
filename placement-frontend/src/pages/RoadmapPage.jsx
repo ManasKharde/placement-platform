@@ -401,9 +401,9 @@ export const RoadmapPage = () => {
         overallProgress: newOverallProgress,
         roadmap: prev.roadmap
           ? {
-              ...prev.roadmap,
-              tracks: nextTracks,
-            }
+            ...prev.roadmap,
+            tracks: nextTracks,
+          }
           : undefined,
       };
     });
@@ -466,11 +466,10 @@ export const RoadmapPage = () => {
                   id={`pill-track-${track.id}`}
                   type="button"
                   onClick={() => scrollToTrack(track.id)}
-                  className={`shrink-0 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 border cursor-pointer ${
-                    activeTrackId === track.id
+                  className={`shrink-0 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 border cursor-pointer ${activeTrackId === track.id
                       ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
                       : "bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                  }`}
+                    }`}
                 >
                   {track.name}
                 </button>
@@ -639,11 +638,10 @@ export const RoadmapPage = () => {
                             </span>
                             {/* Evaluation Type Badge */}
                             <span
-                              className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 ${
-                                isPracticeEvaluation
+                              className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 ${isPracticeEvaluation
                                   ? "bg-blue-50 text-blue-700 border border-blue-200"
                                   : "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                              }`}
+                                }`}
                             >
                               {isPracticeEvaluation ? (
                                 <>
@@ -704,101 +702,112 @@ export const RoadmapPage = () => {
                       <div className="px-5 sm:px-6 pb-6 pt-2 border-t border-border-subtle/70 space-y-3 animate-fade-in">
                         {track.topics && track.topics.length > 0 ? (
                           <div className="space-y-2 pt-1">
-                            {track.topics.map((topic) => {
+                            {track.topics.map((topic, tIdx) => {
                               const isCompleted = topic.status === "completed";
                               const isUpdating = togglingTopicId === topic.id;
                               const isQuizLocked =
                                 topic.hasQuiz && !topic.quizPassed && !isCompleted;
                               const isHighlighted = highlightedTopicId === topic.id;
+                              const prevSubtrack = tIdx > 0 ? track.topics[tIdx - 1]?.subtrack : null;
+                              const isNewSubtrack = Boolean(topic.subtrack && topic.subtrack !== prevSubtrack);
 
                               return (
-                                <div
-                                  key={topic.id}
-                                  id={`topic-${topic.id}`}
-                                  onClick={() => {
-                                    if (typeof topic.id === "number") {
-                                      navigate(`/topics/${topic.id}`);
-                                    }
-                                  }}
-                                  className={`p-3.5 rounded-xl border transition-all duration-300 flex items-start justify-between gap-3.5 cursor-pointer select-none group ${
-                                    isHighlighted
-                                      ? "ring-2 ring-indigo-500/80 shadow-lg shadow-indigo-500/20 bg-indigo-50/20 border-indigo-300 scale-[1.005]"
-                                      : isCompleted
-                                      ? "bg-emerald-50/40 border-emerald-200/70 hover:border-emerald-300"
-                                      : "bg-surface border-border-subtle hover:border-brand-300 hover:shadow-subtle"
-                                  }`}
-                                >
-                                  <div className="flex items-start gap-3.5 min-w-0 flex-1">
-                                    <button
-                                      type="button"
-                                      disabled={isUpdating}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleToggleTopic(topic);
-                                      }}
-                                      className="shrink-0 mt-0.5 transition-transform active:scale-90 p-0.5 rounded hover:bg-black/5"
-                                      title={
-                                        isQuizLocked
-                                          ? "Assessment required: Open topic and pass the test to complete"
-                                          : isCompleted
-                                          ? "Mark as Incomplete"
-                                          : "Mark as Completed"
+                                <React.Fragment key={topic.id}>
+                                  {isNewSubtrack && (
+                                    <div className={`flex items-center gap-2.5 ${tIdx > 0 ? "pt-5 pb-1.5" : "pt-2 pb-1.5"}`}>
+                                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-background border border-border-subtle text-primary-text shadow-xs">
+                                        <Layers className="h-3 w-3 text-brand-600" />
+                                        <span className="text-[11px] font-extrabold uppercase tracking-wider text-primary-text">
+                                          {topic.subtrack}
+                                        </span>
+                                      </div>
+                                      <div className="h-px bg-border-subtle/80 flex-1" />
+                                    </div>
+                                  )}
+                                  <div
+                                    id={`topic-${topic.id}`}
+                                    onClick={() => {
+                                      if (typeof topic.id === "number") {
+                                        navigate(`/topics/${topic.id}`);
                                       }
-                                    >
-                                      {isUpdating ? (
-                                        <Loader2 className="h-4 w-4 animate-spin text-brand-600" />
-                                      ) : isCompleted ? (
-                                        <CheckCircle2 className="h-4 w-4 text-emerald-600 fill-emerald-100" />
-                                      ) : isQuizLocked ? (
-                                        <Lock className="h-4 w-4 text-amber-500/80 group-hover:text-amber-600" />
-                                      ) : (
-                                        <Circle className="h-4 w-4 text-secondary-text/70 group-hover:text-primary-text" />
-                                      )}
-                                    </button>
+                                    }}
+                                    className={`p-3.5 rounded-xl border transition-all duration-300 flex items-start justify-between gap-3.5 cursor-pointer select-none group ${isHighlighted
+                                        ? "ring-2 ring-indigo-500/80 shadow-lg shadow-indigo-500/20 bg-indigo-50/20 border-indigo-300 scale-[1.005]"
+                                        : isCompleted
+                                          ? "bg-emerald-50/40 border-emerald-200/70 hover:border-emerald-300"
+                                          : "bg-surface border-border-subtle hover:border-brand-300 hover:shadow-subtle"
+                                      }`}
+                                  >
+                                    <div className="flex items-start gap-3.5 min-w-0 flex-1">
+                                      <button
+                                        type="button"
+                                        disabled={isUpdating}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleToggleTopic(topic);
+                                        }}
+                                        className="shrink-0 mt-0.5 transition-transform active:scale-90 p-0.5 rounded hover:bg-black/5"
+                                        title={
+                                          isQuizLocked
+                                            ? "Assessment required: Open topic and pass the test to complete"
+                                            : isCompleted
+                                              ? "Mark as Incomplete"
+                                              : "Mark as Completed"
+                                        }
+                                      >
+                                        {isUpdating ? (
+                                          <Loader2 className="h-4 w-4 animate-spin text-brand-600" />
+                                        ) : isCompleted ? (
+                                          <CheckCircle2 className="h-4 w-4 text-emerald-600 fill-emerald-100" />
+                                        ) : isQuizLocked ? (
+                                          <Lock className="h-4 w-4 text-amber-500/80 group-hover:text-amber-600" />
+                                        ) : (
+                                          <Circle className="h-4 w-4 text-secondary-text/70 group-hover:text-primary-text" />
+                                        )}
+                                      </button>
 
-                                    <div className="min-w-0 flex-1">
-                                      <div className="flex items-center justify-between gap-2">
-                                        <div className="flex items-center gap-2 min-w-0">
-                                          <h4
-                                            className={`text-xs font-bold leading-snug truncate group-hover:text-brand-600 transition-colors ${
-                                              isCompleted
-                                                ? "text-emerald-950 line-through opacity-80"
-                                                : "text-primary-text"
-                                            }`}
-                                          >
-                                            {topic.name}
-                                          </h4>
-                                          {topic.hasQuiz && (
-                                            <span
-                                              className={`text-[9px] font-bold px-1.5 py-0.2 rounded border shrink-0 ${
-                                                topic.quizPassed
-                                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                                  : "bg-amber-50 text-amber-700 border-amber-200"
-                                              }`}
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center justify-between gap-2">
+                                          <div className="flex items-center gap-2 min-w-0">
+                                            <h4
+                                              className={`text-xs font-bold leading-snug truncate group-hover:text-brand-600 transition-colors ${isCompleted
+                                                  ? "text-emerald-950 line-through opacity-80"
+                                                  : "text-primary-text"
+                                                }`}
                                             >
-                                              {topic.quizPassed ? "Quiz Passed" : "Quiz Required"}
+                                              {topic.name}
+                                            </h4>
+                                            {topic.hasQuiz && (
+                                              <span
+                                                className={`text-[9px] font-bold px-1.5 py-0.2 rounded border shrink-0 ${topic.quizPassed
+                                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                                    : "bg-amber-50 text-amber-700 border-amber-200"
+                                                  }`}
+                                              >
+                                                {topic.quizPassed ? "Quiz Passed" : "Quiz Required"}
+                                              </span>
+                                            )}
+                                          </div>
+
+                                          {topic.estimatedMinutes > 0 && (
+                                            <span className="text-[10px] font-medium text-secondary-text shrink-0 flex items-center gap-1">
+                                              <Clock className="h-3 w-3" />
+                                              ~{topic.estimatedMinutes}m
                                             </span>
                                           )}
                                         </div>
 
-                                        {topic.estimatedMinutes > 0 && (
-                                          <span className="text-[10px] font-medium text-secondary-text shrink-0 flex items-center gap-1">
-                                            <Clock className="h-3 w-3" />
-                                            ~{topic.estimatedMinutes}m
-                                          </span>
+                                        {topic.description && (
+                                          <p className="text-[11px] text-secondary-text mt-0.5 line-clamp-2">
+                                            {topic.description}
+                                          </p>
                                         )}
                                       </div>
-
-                                      {topic.description && (
-                                        <p className="text-[11px] text-secondary-text mt-0.5 line-clamp-2">
-                                          {topic.description}
-                                        </p>
-                                      )}
                                     </div>
-                                  </div>
 
-                                  <ChevronRight className="h-4 w-4 text-secondary-text/40 group-hover:text-brand-600 group-hover:translate-x-0.5 transition-all shrink-0 mt-1" />
-                                </div>
+                                    <ChevronRight className="h-4 w-4 text-secondary-text/40 group-hover:text-brand-600 group-hover:translate-x-0.5 transition-all shrink-0 mt-1" />
+                                  </div>
+                                </React.Fragment>
                               );
                             })}
                           </div>

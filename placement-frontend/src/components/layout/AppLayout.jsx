@@ -257,16 +257,14 @@ export const AppLayout = ({ children, onPathSwitched }) => {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 ${
-                    isActive
-                      ? "bg-brand-50 text-brand-600 shadow-subtle"
-                      : "text-secondary-text hover:text-primary-text hover:bg-background"
-                  }`}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 ${isActive
+                    ? "bg-brand-50 text-brand-600 shadow-subtle"
+                    : "text-secondary-text hover:text-primary-text hover:bg-background"
+                    }`}
                 >
                   <Icon
-                    className={`h-4 w-4 ${
-                      isActive ? "text-brand-600" : "text-secondary-text"
-                    }`}
+                    className={`h-4 w-4 ${isActive ? "text-brand-600" : "text-secondary-text"
+                      }`}
                   />
                   <span>{item.label}</span>
                 </Link>
@@ -335,11 +333,10 @@ export const AppLayout = ({ children, onPathSwitched }) => {
                   <div
                     key={path.id}
                     onClick={() => setSelectedPathId(path.id)}
-                    className={`p-4 rounded-2xl border transition-all duration-150 cursor-pointer flex items-center justify-between gap-4 ${
-                      isSelected
-                        ? "bg-brand-50/70 border-brand-500 shadow-subtle ring-2 ring-brand-500/20"
-                        : "bg-surface border-border-subtle hover:border-brand-200 hover:bg-background/40"
-                    }`}
+                    className={`p-4 rounded-2xl border transition-all duration-150 cursor-pointer flex items-center justify-between gap-4 ${isSelected
+                      ? "bg-brand-50/70 border-brand-500 shadow-subtle ring-2 ring-brand-500/20"
+                      : "bg-surface border-border-subtle hover:border-brand-200 hover:bg-background/40"
+                      }`}
                   >
                     <div className="flex items-center gap-3.5 min-w-0">
                       <div className="h-10 w-10 rounded-xl bg-white border border-border-subtle shadow-subtle flex items-center justify-center shrink-0">

@@ -36,15 +36,7 @@ const seedModularTracks = async () => {
       description: "Algorithmic data structures, problem-solving patterns, and advanced relational query optimization.",
       evaluationType: "practice",
       trackOrder: 2,
-      topicSlugs: [
-        "arrays-and-hashing",
-        "two-pointers-sliding-window",
-        "linked-lists-interview",
-        "trees-binary-search-trees",
-        "relational-sql-joins-window-functions",
-        "sql-query-optimization",
-        "schema-design-normalization",
-      ],
+      // Note: Topic population is delegated to dedicated batch seeders (seed_dsa_batch_*.js)
     },
     {
       name: "Core Computer Science",
@@ -99,6 +91,13 @@ const seedModularTracks = async () => {
 
     const track = trackRes.rows[0];
     seededTrackMap.set(track.slug, { ...track, trackOrder: trackDef.trackOrder });
+
+    // For tracks that delegate topic population (e.g. problem-solving-dsa-sql),
+    // skip wiping or managing track_topics here so batch seeders remain authoritative.
+    if (!trackDef.topicSlugs || trackDef.slug === "problem-solving-dsa-sql") {
+      console.log(`✅ Track ensured: "${track.name}" (${trackDef.evaluationType}) — topic management delegated to batch seeders.`);
+      continue;
+    }
 
     // Clear old track_topics for this track to rebuild cleanly
     await pool.query("DELETE FROM track_topics WHERE track_id = $1", [track.id]);

@@ -124,6 +124,8 @@ const getTopicDetail = async (req, res) => {
         t.name,
         t.slug,
         t.description,
+        t.subtrack,
+        t.summary_markdown,
         t.theory_summary,
         t.doc_links,
         t.video_links,
@@ -146,7 +148,7 @@ const getTopicDetail = async (req, res) => {
       LEFT JOIN user_progress up ON t.id = up.topic_id AND up.user_id = $2
       WHERE t.id = $1
       GROUP BY 
-        t.id, t.name, t.slug, t.description, t.theory_summary, t.doc_links, 
+        t.id, t.name, t.slug, t.description, t.subtrack, t.summary_markdown, t.theory_summary, t.doc_links, 
         t.video_links, t.practice_items, tr.id, tr.name, tr.slug, pp.id, pp.name, pp.slug, 
         up.status, up.completed_at
       LIMIT 1;
@@ -191,6 +193,7 @@ const getTopicDetail = async (req, res) => {
 
     // Default theory summary if empty
     const theorySummary =
+      row.summary_markdown ||
       row.theory_summary ||
       `### 🎯 ${row.name}\n\n${row.description || "Core placement module designed for engineering preparation."}\n\n- Master foundational principles and core architecture.\n- Practice production implementations and boundary edge-cases.\n- Prepare for technical interview discussion points.`;
 
@@ -199,6 +202,7 @@ const getTopicDetail = async (req, res) => {
       title: row.name,
       name: row.name,
       slug: row.slug,
+      subtrack: row.subtrack,
       description: row.description,
       estimated_minutes: row.estimated_minutes || 45,
       status: row.status,
@@ -210,6 +214,7 @@ const getTopicDetail = async (req, res) => {
       path_name: row.path_name,
       pillar_name: pillar.name,
       pillar: pillar,
+      summary_markdown: row.summary_markdown || theorySummary,
       theory_summary: theorySummary,
       doc_links: docLinks,
       video_links: videoLinks,
@@ -229,4 +234,4 @@ const getTopicDetail = async (req, res) => {
 module.exports = {
   getTopicResources,
   getTopicDetail,
-};
+};

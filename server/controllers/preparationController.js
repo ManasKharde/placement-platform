@@ -263,6 +263,7 @@ const getUserRoadmap = async (req, res) => {
         top.name,
         top.slug,
         top.description,
+        top.subtrack,
         tt.track_id,
         tt.topic_order,
         COALESCE(up.status, 'not_started') AS status,
@@ -278,7 +279,7 @@ const getUserRoadmap = async (req, res) => {
       LEFT JOIN user_progress up ON top.id = up.topic_id AND up.user_id = $1
       LEFT JOIN resources r ON top.id = r.topic_id
       WHERE tt.track_id = ANY($2::int[])
-      GROUP BY top.id, top.name, top.slug, top.description, tt.track_id, tt.topic_order, up.status
+      GROUP BY top.id, top.name, top.slug, top.description, top.subtrack, tt.track_id, tt.topic_order, up.status
       ORDER BY tt.track_id ASC, tt.topic_order ASC;
     `;
 
@@ -294,6 +295,7 @@ const getUserRoadmap = async (req, res) => {
           name: topic.name,
           slug: topic.slug,
           description: topic.description,
+          subtrack: topic.subtrack,
           order: topic.topic_order,
           status: topic.status,
           estimatedMinutes: topic.estimated_minutes,

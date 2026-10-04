@@ -36,6 +36,26 @@ import {
   Lock,
 } from "lucide-react";
 
+// Helper to extract YouTube video embed URL
+const getYouTubeEmbedUrl = (url) => {
+  if (!url) return null;
+  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+  return match ? `https://www.youtube.com/embed/${match[1]}` : null;
+};
+
+// Sanitizes raw LaTeX commands and $ wrappers from text lines
+const sanitizeLine = (text) => {
+  if (!text) return "";
+  return text
+    .replace(/\\to/g, "→")
+    .replace(/\\infty/g, "∞")
+    .replace(/\\log/g, "log")
+    .replace(/\\sqrt\{?([^}]+)\}?/g, "sqrt($1)")
+    .replace(/\$([^$]+)\$/g, "$1") // Strip $inline math$ wrappers
+    .replace(/\\\(/g, "")
+    .replace(/\\\)/g, "");
+};
+
 // Simple custom Markdown theory viewer
 const SimpleMarkdown = ({ content }) => {
   const [copiedCode, setCopiedCode] = useState(null);
@@ -98,7 +118,7 @@ const SimpleMarkdown = ({ content }) => {
         return (
           <div key={idx} className="space-y-2">
             {lines.map((line, lIdx) => {
-              const trimmed = line.trim();
+              const trimmed = sanitizeLine(line.trim());
               if (!trimmed) return null;
 
               if (trimmed.startsWith("### ")) {
@@ -239,7 +259,7 @@ export const TopicDetailPage = () => {
       console.error("Failed to load topic details:", err);
       setError(
         err.response?.data?.error ||
-          "Unable to load topic workspace. Please refresh or try again."
+        "Unable to load topic workspace. Please refresh or try again."
       );
     } finally {
       setLoading(false);
@@ -477,16 +497,15 @@ export const TopicDetailPage = () => {
               isLocked
                 ? "Pass assessment (>=70%) to unlock completion"
                 : isCompleted
-                ? "Mark as Incomplete"
-                : "Mark as Completed"
+                  ? "Mark as Incomplete"
+                  : "Mark as Completed"
             }
-            className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-subtle shrink-0 ${
-              isLocked
-                ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-80"
-                : isCompleted
+            className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-subtle shrink-0 ${isLocked
+              ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-80"
+              : isCompleted
                 ? "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer hover:shadow-hover"
                 : "bg-surface hover:bg-background text-primary-text border border-border-subtle hover:border-brand-300 cursor-pointer hover:shadow-hover"
-            }`}
+              }`}
           >
             {togglingCompletion ? (
               <>
@@ -557,6 +576,14 @@ export const TopicDetailPage = () => {
                     {topic.track_name}
                   </span>
 
+                  {/* Subtrack Pill */}
+                  {topic.subtrack && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200">
+                      <Layers className="h-3 w-3" />
+                      <span>{topic.subtrack}</span>
+                    </span>
+                  )}
+
                   {/* Estimated Minutes */}
                   <span className="text-[11px] font-semibold text-secondary-text bg-background px-2.5 py-0.5 rounded-full border border-border-subtle flex items-center gap-1">
                     <Clock className="h-3 w-3 text-brand-600" />
@@ -587,11 +614,10 @@ export const TopicDetailPage = () => {
                 type="button"
                 id="tab-learning-trigger"
                 onClick={() => setActiveTab("learning")}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === "learning"
-                    ? "bg-brand-600 text-white shadow-subtle"
-                    : "text-secondary-text hover:text-primary-text hover:bg-background"
-                }`}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === "learning"
+                  ? "bg-brand-600 text-white shadow-subtle"
+                  : "text-secondary-text hover:text-primary-text hover:bg-background"
+                  }`}
               >
                 <BookOpen className="h-4 w-4" />
                 <span>Learning & Theory</span>
@@ -601,33 +627,30 @@ export const TopicDetailPage = () => {
                 type="button"
                 id="tab-practice-trigger"
                 onClick={() => setActiveTab("practice")}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === "practice"
-                    ? "bg-brand-600 text-white shadow-subtle"
-                    : "text-secondary-text hover:text-primary-text hover:bg-background"
-                }`}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === "practice"
+                  ? "bg-brand-600 text-white shadow-subtle"
+                  : "text-secondary-text hover:text-primary-text hover:bg-background"
+                  }`}
               >
                 <Target className="h-4 w-4" />
                 <span>Practical Evaluation</span>
                 {quizData?.hasQuiz ? (
                   <span
-                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                      activeTab === "practice"
-                        ? "bg-white/20 text-white"
-                        : quizData.latest_attempt?.passed
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeTab === "practice"
+                      ? "bg-white/20 text-white"
+                      : quizData.latest_attempt?.passed
                         ? "bg-emerald-100 text-emerald-800"
                         : "bg-brand-100 text-brand-700"
-                    }`}
+                      }`}
                   >
                     {quizData.latest_attempt?.passed ? "Passed ✓" : "Quiz"}
                   </span>
                 ) : topic.practice_items?.length > 0 ? (
                   <span
-                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                      activeTab === "practice"
-                        ? "bg-white/20 text-white"
-                        : "bg-brand-100 text-brand-700"
-                    }`}
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeTab === "practice"
+                      ? "bg-white/20 text-white"
+                      : "bg-brand-100 text-brand-700"
+                      }`}
                   >
                     {topic.practice_items.length}
                   </span>
@@ -650,63 +673,209 @@ export const TopicDetailPage = () => {
                       Concept Breakdown & Architectural Notes
                     </h2>
                   </div>
-                  <span className="text-[11px] text-secondary-text">
-                    Placement Guide
-                  </span>
+                  {topic.subtrack ? (
+                    <span className="text-[11px] font-semibold text-brand-700 bg-brand-50 px-2.5 py-0.5 rounded-full border border-brand-200">
+                      {topic.subtrack}
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-secondary-text">
+                      Placement Guide
+                    </span>
+                  )}
                 </div>
 
                 {/* Render Markdown Summary */}
                 <SimpleMarkdown content={topic.theory_summary} />
               </div>
 
-              {/* Right Col: Curated Videos & Documentation Links */}
+              {/* Right Col: Embedded Video, Practice Problems & Documentation Links */}
               <div className="space-y-6">
-                {/* Card 1: Curated Video Lectures */}
-                <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-5 sm:p-6 space-y-4">
-                  <div className="flex items-center gap-2 pb-2 border-b border-border-subtle">
-                    <PlayCircle className="h-4 w-4 text-red-500" />
-                    <h3 className="text-xs font-bold text-primary-text uppercase tracking-wider">
-                      Curated Video Lectures
-                    </h3>
-                  </div>
+                {/* 1. Primary Embedded YouTube Video Lecture */}
+                {(() => {
+                  const primaryVideo =
+                    topic.video_links?.[0] ||
+                    topic.resources?.find((r) => r.resource_type === "video");
+                  const embedUrl = getYouTubeEmbedUrl(primaryVideo?.url);
 
-                  {topic.video_links?.length > 0 ? (
-                    <div className="space-y-2.5">
-                      {topic.video_links.map((video, vIdx) => (
-                        <a
-                          key={vIdx}
-                          href={video.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-3 rounded-2xl border border-border-subtle/80 bg-background/60 hover:bg-background hover:border-red-200 transition-all flex items-start justify-between gap-3 group"
-                        >
-                          <div className="flex items-start gap-2.5 min-w-0">
-                            <div className="h-8 w-8 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                              <PlayCircle className="h-4 w-4" />
-                            </div>
-                            <div className="min-w-0">
-                              <h4 className="text-xs font-bold text-primary-text group-hover:text-brand-600 transition-colors line-clamp-2">
-                                {video.title}
-                              </h4>
-                              {video.duration && (
-                                <p className="text-[10px] text-secondary-text mt-0.5">
-                                  ⏱ {video.duration}
-                                </p>
-                              )}
-                            </div>
+                  if (embedUrl) {
+                    return (
+                      <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-5 sm:p-6 space-y-3">
+                        <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
+                          <div className="flex items-center gap-2">
+                            <PlayCircle className="h-4 w-4 text-red-500" />
+                            <h3 className="text-xs font-bold text-primary-text uppercase tracking-wider">
+                              Embedded Video Lecture
+                            </h3>
                           </div>
-                          <ExternalLink className="h-3.5 w-3.5 text-secondary-text/50 group-hover:text-primary-text shrink-0 mt-1" />
-                        </a>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-secondary-text">
-                      No external video links available for this module.
-                    </p>
-                  )}
-                </div>
+                          <a
+                            href={primaryVideo.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] font-medium text-secondary-text hover:text-red-500 flex items-center gap-1 transition-colors"
+                          >
+                            <span>Open on YouTube</span>
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </div>
 
-                {/* Card 2: Recommended Documentation & Guides */}
+                        <div className="aspect-video w-full rounded-2xl overflow-hidden border border-border-subtle bg-black shadow-subtle">
+                          <iframe
+                            className="w-full h-full"
+                            src={embedUrl}
+                            title={primaryVideo.title || "Lecture Video"}
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                        </div>
+
+                        {primaryVideo.title && (
+                          <div className="pt-1">
+                            <h4 className="text-xs font-bold text-primary-text leading-snug line-clamp-2">
+                              {primaryVideo.title}
+                            </h4>
+                            {primaryVideo.duration && (
+                              <p className="text-[10px] text-secondary-text mt-0.5">
+                                ⏱ Duration: {primaryVideo.duration}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  if (topic.video_links?.length > 0) {
+                    return (
+                      <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-5 sm:p-6 space-y-4">
+                        <div className="flex items-center gap-2 pb-2 border-b border-border-subtle">
+                          <PlayCircle className="h-4 w-4 text-red-500" />
+                          <h3 className="text-xs font-bold text-primary-text uppercase tracking-wider">
+                            Curated Video Lectures
+                          </h3>
+                        </div>
+                        <div className="space-y-2.5">
+                          {topic.video_links.map((video, vIdx) => (
+                            <a
+                              key={vIdx}
+                              href={video.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-3 rounded-2xl border border-border-subtle/80 bg-background/60 hover:bg-background hover:border-red-200 transition-all flex items-start justify-between gap-3 group"
+                            >
+                              <div className="flex items-start gap-2.5 min-w-0">
+                                <div className="h-8 w-8 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                                  <PlayCircle className="h-4 w-4" />
+                                </div>
+                                <div className="min-w-0">
+                                  <h4 className="text-xs font-bold text-primary-text group-hover:text-brand-600 transition-colors line-clamp-2">
+                                    {video.title}
+                                  </h4>
+                                  {video.duration && (
+                                    <p className="text-[10px] text-secondary-text mt-0.5">
+                                      ⏱ {video.duration}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              <ExternalLink className="h-3.5 w-3.5 text-secondary-text/50 group-hover:text-primary-text shrink-0 mt-1" />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return null;
+                })()}
+
+                {/* 2. Interactive Target Practice Problems */}
+                {topic.practice_items?.length > 0 && (
+                  <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-5 sm:p-6 space-y-4">
+                    <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
+                      <div className="flex items-center gap-2">
+                        <Terminal className="h-4 w-4 text-purple-600" />
+                        <h3 className="text-xs font-bold text-primary-text uppercase tracking-wider">
+                          Target Practice Problems
+                        </h3>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+                        {topic.practice_items.filter((prob, idx) => checkedTaskIds.has(`prob_${prob.problemId || idx}`)).length} / {topic.practice_items.length} Done
+                      </span>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      {topic.practice_items.map((prob, pIdx) => {
+                        const taskKey = `prob_${prob.problemId || pIdx}`;
+                        const isTaskChecked = checkedTaskIds.has(taskKey);
+                        const isGfg = prob.platform === "GeeksforGeeks" || prob.url?.includes("geeksforgeeks.org");
+
+                        return (
+                          <div
+                            key={pIdx}
+                            className={`p-3 rounded-2xl border transition-all flex items-start justify-between gap-3 ${isTaskChecked
+                              ? "bg-emerald-50/50 border-emerald-200"
+                              : "bg-background/60 border-border-subtle hover:border-brand-200"
+                              }`}
+                          >
+                            <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleTask(taskKey)}
+                                className="shrink-0 mt-0.5 transition-transform active:scale-90"
+                              >
+                                {isTaskChecked ? (
+                                  <CheckCircle2 className="h-4 w-4 text-emerald-600 fill-emerald-100" />
+                                ) : (
+                                  <Circle className="h-4 w-4 text-secondary-text" />
+                                )}
+                              </button>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <h4
+                                    className={`text-xs font-bold ${isTaskChecked
+                                      ? "line-through text-emerald-900 opacity-80"
+                                      : "text-primary-text"
+                                      }`}
+                                  >
+                                    {prob.problemId && !prob.problemId.startsWith("gfg") ? `#${prob.problemId} ` : ""}{prob.title}
+                                  </h4>
+                                  <span
+                                    className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full ${prob.difficulty === "Easy"
+                                      ? "bg-emerald-100 text-emerald-800"
+                                      : prob.difficulty === "Medium"
+                                        ? "bg-amber-100 text-amber-800"
+                                        : "bg-red-100 text-red-800"
+                                      }`}
+                                  >
+                                    {prob.difficulty || "Easy"}
+                                  </span>
+                                </div>
+                                {prob.description && (
+                                  <p className="text-[10px] text-secondary-text mt-0.5 line-clamp-1">
+                                    {prob.description}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            <a
+                              href={prob.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface border border-border-subtle hover:bg-background text-[11px] font-bold text-primary-text transition-all shrink-0 hover:border-brand-300"
+                              title={`Solve on ${isGfg ? "GeeksforGeeks" : "LeetCode"}`}
+                            >
+                              <span>{isGfg ? "GFG" : "LeetCode"}</span>
+                              <ExternalLink className="h-3 w-3 text-secondary-text" />
+                            </a>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Recommended Documentation & Guides */}
                 <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-5 sm:p-6 space-y-4">
                   <div className="flex items-center gap-2 pb-2 border-b border-border-subtle">
                     <FileText className="h-4 w-4 text-brand-600" />
@@ -781,16 +950,14 @@ export const TopicDetailPage = () => {
 
                     {/* Live Countdown Timer */}
                     <div
-                      className={`flex items-center gap-2 px-4 py-2 rounded-2xl border font-mono font-bold text-sm tracking-wider shadow-subtle shrink-0 ${
-                        timeRemaining <= 60
-                          ? "bg-red-50 text-red-600 border-red-200 animate-pulse"
-                          : "bg-surface text-primary-text border-border-subtle"
-                      }`}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-2xl border font-mono font-bold text-sm tracking-wider shadow-subtle shrink-0 ${timeRemaining <= 60
+                        ? "bg-red-50 text-red-600 border-red-200 animate-pulse"
+                        : "bg-surface text-primary-text border-border-subtle"
+                        }`}
                     >
                       <Clock
-                        className={`h-4 w-4 ${
-                          timeRemaining <= 60 ? "text-red-600 animate-spin" : "text-brand-600"
-                        }`}
+                        className={`h-4 w-4 ${timeRemaining <= 60 ? "text-red-600 animate-spin" : "text-brand-600"
+                          }`}
                       />
                       <span>{formatTime(timeRemaining)}</span>
                     </div>
@@ -813,13 +980,12 @@ export const TopicDetailPage = () => {
                             key={q.id}
                             type="button"
                             onClick={() => setActiveQuestionIdx(idx)}
-                            className={`h-9 w-9 rounded-xl text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${
-                              isActive
-                                ? "bg-brand-600 text-white shadow-subtle ring-2 ring-brand-400 ring-offset-2"
-                                : isAnswered
+                            className={`h-9 w-9 rounded-xl text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${isActive
+                              ? "bg-brand-600 text-white shadow-subtle ring-2 ring-brand-400 ring-offset-2"
+                              : isAnswered
                                 ? "bg-brand-100 text-brand-800 border border-brand-300"
                                 : "bg-background text-secondary-text border border-border-subtle hover:border-brand-300"
-                            }`}
+                              }`}
                           >
                             {idx + 1}
                           </button>
@@ -854,27 +1020,24 @@ export const TopicDetailPage = () => {
                               <div
                                 key={optIdx}
                                 onClick={() => handleSelectOption(currentQ.id, optIdx)}
-                                className={`p-4 rounded-2xl border transition-all flex items-center gap-3.5 cursor-pointer select-none ${
-                                  isSelected
-                                    ? "bg-brand-50/70 border-brand-400 ring-1 ring-brand-300 shadow-subtle"
-                                    : "bg-background/60 border-border-subtle hover:border-brand-200 hover:bg-background"
-                                }`}
+                                className={`p-4 rounded-2xl border transition-all flex items-center gap-3.5 cursor-pointer select-none ${isSelected
+                                  ? "bg-brand-50/70 border-brand-400 ring-1 ring-brand-300 shadow-subtle"
+                                  : "bg-background/60 border-border-subtle hover:border-brand-200 hover:bg-background"
+                                  }`}
                               >
                                 <div
-                                  className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${
-                                    isSelected
-                                      ? "bg-brand-600 text-white"
-                                      : "bg-surface border border-border-subtle text-secondary-text"
-                                  }`}
+                                  className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${isSelected
+                                    ? "bg-brand-600 text-white"
+                                    : "bg-surface border border-border-subtle text-secondary-text"
+                                    }`}
                                 >
                                   {optionLetters[optIdx]}
                                 </div>
                                 <span
-                                  className={`text-xs sm:text-sm font-medium ${
-                                    isSelected
-                                      ? "text-primary-text font-semibold"
-                                      : "text-secondary-text"
-                                  }`}
+                                  className={`text-xs sm:text-sm font-medium ${isSelected
+                                    ? "text-primary-text font-semibold"
+                                    : "text-secondary-text"
+                                    }`}
                                 >
                                   {optText}
                                 </span>
@@ -953,21 +1116,19 @@ export const TopicDetailPage = () => {
                 <div className="space-y-6 animate-fade-in">
                   {/* Scorecard Hero Banner */}
                   <div
-                    className={`p-6 sm:p-8 rounded-3xl border shadow-card space-y-4 ${
-                      quizResult.passed
-                        ? "bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-surface border-emerald-300"
-                        : "bg-gradient-to-br from-amber-500/10 via-red-500/5 to-surface border-amber-300"
-                    }`}
+                    className={`p-6 sm:p-8 rounded-3xl border shadow-card space-y-4 ${quizResult.passed
+                      ? "bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-surface border-emerald-300"
+                      : "bg-gradient-to-br from-amber-500/10 via-red-500/5 to-surface border-amber-300"
+                      }`}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
                           <span
-                            className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${
-                              quizResult.passed
-                                ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                                : "bg-amber-100 text-amber-900 border border-amber-300"
-                            }`}
+                            className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${quizResult.passed
+                              ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                              : "bg-amber-100 text-amber-900 border border-amber-300"
+                              }`}
                           >
                             {quizResult.passed ? (
                               <Trophy className="h-3.5 w-3.5 text-emerald-700" />
@@ -992,9 +1153,8 @@ export const TopicDetailPage = () => {
                         <p className="text-xs sm:text-sm font-medium leading-relaxed max-w-2xl text-secondary-text">
                           {quizResult.passed
                             ? `🎉 Congratulations! Assessment Passed (${quizResult.percentage}%). Topic marked as completed.`
-                            : `Score: ${quizResult.percentage}%. You need at least ${
-                                quizData?.quiz?.passing_percentage || 70
-                              }% to mark this topic as completed. Review your answers below and try again.`}
+                            : `Score: ${quizResult.percentage}%. You need at least ${quizData?.quiz?.passing_percentage || 70
+                            }% to mark this topic as completed. Review your answers below and try again.`}
                         </p>
                       </div>
 
@@ -1040,9 +1200,8 @@ export const TopicDetailPage = () => {
                         return (
                           <div
                             key={rev.id || qIdx}
-                            className={`bg-surface rounded-2xl border p-5 sm:p-6 space-y-4 shadow-subtle ${
-                              rev.is_correct ? "border-emerald-200" : "border-red-200"
-                            }`}
+                            className={`bg-surface rounded-2xl border p-5 sm:p-6 space-y-4 shadow-subtle ${rev.is_correct ? "border-emerald-200" : "border-red-200"
+                              }`}
                           >
                             {/* Question Header */}
                             <div className="flex items-start justify-between gap-3">
@@ -1052,11 +1211,10 @@ export const TopicDetailPage = () => {
                                     Q{qIdx + 1}.
                                   </span>
                                   <span
-                                    className={`text-[11px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
-                                      rev.is_correct
-                                        ? "bg-emerald-100 text-emerald-800"
-                                        : "bg-red-100 text-red-800"
-                                    }`}
+                                    className={`text-[11px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${rev.is_correct
+                                      ? "bg-emerald-100 text-emerald-800"
+                                      : "bg-red-100 text-red-800"
+                                      }`}
                                   >
                                     {rev.is_correct ? (
                                       <>
@@ -1196,11 +1354,10 @@ export const TopicDetailPage = () => {
                         {/* Previous Attempt Badge */}
                         {quizData.latest_attempt && (
                           <span
-                            className={`text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 ${
-                              quizData.latest_attempt.passed
-                                ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                                : "bg-red-100 text-red-800 border border-red-300"
-                            }`}
+                            className={`text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 ${quizData.latest_attempt.passed
+                              ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                              : "bg-red-100 text-red-800 border border-red-300"
+                              }`}
                           >
                             {quizData.latest_attempt.passed ? (
                               <>
@@ -1245,446 +1402,443 @@ export const TopicDetailPage = () => {
               {quizMode === "overview" && (
                 <>
                   {pillarKey === "dsa" ? (
-                /* DSA Evaluation: Curated LeetCode Problems */
-                <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-6 sm:p-8 space-y-6">
-                  <div>
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 text-purple-700 text-xs font-bold mb-2">
-                      <Terminal className="h-3.5 w-3.5" />
-                      <span>Coding Interview Practical Round</span>
-                    </div>
-                    <h2 className="text-xl font-bold text-primary-text">
-                      Curated Problem Solving Challenge
-                    </h2>
-                    <p className="text-xs text-secondary-text mt-1 max-w-xl">
-                      Solve the target algorithmic problems on LeetCode. Verify your edge cases and check off items once completed.
-                    </p>
-                  </div>
-
-                  <div className="space-y-3">
-                    {(topic.practice_items?.length > 0
-                      ? topic.practice_items
-                      : [
-                          {
-                            title: `${topic.title} Warmup & Boundary Validation`,
-                            difficulty: "Easy",
-                            url: "https://leetcode.com/problemset/all/",
-                            problemId: "1",
-                          },
-                          {
-                            title: `${topic.title} Core Interview Pattern`,
-                            difficulty: "Medium",
-                            url: "https://leetcode.com/problemset/all/",
-                            problemId: "2",
-                          },
-                        ]
-                    ).map((prob, pIdx) => {
-                      const taskKey = `prob_${prob.problemId || pIdx}`;
-                      const isTaskChecked = checkedTaskIds.has(taskKey);
-
-                      return (
-                        <div
-                          key={pIdx}
-                          className={`p-4 rounded-2xl border transition-all flex items-center justify-between gap-4 ${
-                            isTaskChecked
-                              ? "bg-emerald-50/50 border-emerald-200"
-                              : "bg-background/60 border-border-subtle hover:border-brand-200"
-                          }`}
-                        >
-                          <div className="flex items-center gap-3.5 min-w-0">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleTask(taskKey)}
-                              className="shrink-0 transition-transform active:scale-90"
-                            >
-                              {isTaskChecked ? (
-                                <CheckCircle2 className="h-5 w-5 text-emerald-600 fill-emerald-100" />
-                              ) : (
-                                <Circle className="h-5 w-5 text-secondary-text" />
-                              )}
-                            </button>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h4
-                                  className={`text-xs sm:text-sm font-bold truncate ${
-                                    isTaskChecked
-                                      ? "line-through text-emerald-900 opacity-80"
-                                      : "text-primary-text"
-                                  }`}
-                                >
-                                  {prob.problemId ? `#${prob.problemId} ` : ""}{prob.title}
-                                </h4>
-                                <span
-                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                    prob.difficulty === "Easy"
-                                      ? "bg-emerald-100 text-emerald-800"
-                                      : prob.difficulty === "Medium"
-                                      ? "bg-amber-100 text-amber-800"
-                                      : "bg-red-100 text-red-800"
-                                  }`}
-                                >
-                                  {prob.difficulty || "Medium"}
-                                </span>
-                              </div>
-                              {prob.description && (
-                                <p className="text-[11px] text-secondary-text mt-0.5 line-clamp-1">
-                                  {prob.description}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-
-                          <a
-                            href={prob.url || "https://leetcode.com"}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface border border-border-subtle hover:bg-background text-xs font-bold text-primary-text transition-all shrink-0 hover:border-brand-300"
-                          >
-                            <span>Solve on LeetCode ↗</span>
-                          </a>
+                    /* DSA Evaluation: Curated LeetCode Problems */
+                    <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-6 sm:p-8 space-y-6">
+                      <div>
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 text-purple-700 text-xs font-bold mb-2">
+                          <Terminal className="h-3.5 w-3.5" />
+                          <span>Coding Interview Practical Round</span>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : pillarKey === "cs" ? (
-                /* CS Fundamentals Evaluation: Flashcards / Screening Questions */
-                <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-6 sm:p-8 space-y-6">
-                  <div>
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold mb-2">
-                      <Cpu className="h-3.5 w-3.5" />
-                      <span>Technical Screening Flashcards</span>
-                    </div>
-                    <h2 className="text-xl font-bold text-primary-text">
-                      Core Interview Q&A Self-Evaluation
-                    </h2>
-                    <p className="text-xs text-secondary-text mt-1 max-w-xl">
-                      Review each key screening question. Test yourself before expanding the answer.
-                    </p>
-                  </div>
-
-                  <div className="space-y-3">
-                    {(topic.practice_items?.length > 0 && topic.practice_items[0]?.question
-                      ? topic.practice_items
-                      : [
-                          {
-                            question: `How is "${topic.title}" tested in campus & company placement rounds?`,
-                            answer:
-                              "Interviewers test whether you understand the underlying operating system or runtime mechanism rather than superficial syntax. Be ready to trace execution order and explain resource limits.",
-                            difficulty: "Core Screening",
-                          },
-                          {
-                            question: "What are the common concurrency and memory pitfalls associated with this concept?",
-                            answer:
-                              "Memory leaks due to lingering event listeners or unclosed streams, thread starvation, and unhandled promise rejections causing process exit in production.",
-                            difficulty: "Classic Interview",
-                          },
-                          {
-                            question: "How would you optimize this under high-throughput production load?",
-                            answer:
-                              "Implement backpressure handling, utilize clustering or worker threads for CPU spikes, and employ caching layers like Redis to minimize repeat computation.",
-                            difficulty: "Systems Architecture",
-                          },
-                        ]
-                    ).map((qa, qIdx) => {
-                      const isExpanded = expandedQuestionIdx === qIdx;
-                      return (
-                        <div
-                          key={qIdx}
-                          className="rounded-2xl border border-border-subtle overflow-hidden bg-background/50 transition-all"
-                        >
-                          <div
-                            onClick={() =>
-                              setExpandedQuestionIdx(isExpanded ? null : qIdx)
-                            }
-                            className="p-4 flex items-center justify-between gap-4 cursor-pointer hover:bg-background select-none"
-                          >
-                            <div className="flex items-center gap-3">
-                              <HelpCircle className="h-4 w-4 text-brand-600 shrink-0" />
-                              <div>
-                                <h4 className="text-xs sm:text-sm font-bold text-primary-text">
-                                  {qa.question}
-                                </h4>
-                                {qa.difficulty && (
-                                  <span className="text-[10px] font-semibold text-secondary-text mt-0.5 inline-block">
-                                    {qa.difficulty}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <span className="text-xs text-secondary-text font-medium flex items-center gap-1 shrink-0">
-                              {isExpanded ? (
-                                <>
-                                  <span>Hide</span>
-                                  <ChevronUp className="h-4 w-4" />
-                                </>
-                              ) : (
-                                <>
-                                  <span>Show Answer</span>
-                                  <ChevronDown className="h-4 w-4" />
-                                </>
-                              )}
-                            </span>
-                          </div>
-
-                          {isExpanded && (
-                            <div className="px-4 pb-4 pt-1 border-t border-border-subtle/60 text-xs text-secondary-text leading-relaxed bg-surface animate-fade-in">
-                              <p className="font-medium text-primary-text mb-1">
-                                Interview Answer Framework:
-                              </p>
-                              {qa.answer}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : pillarKey === "apt_sql" ? (
-                /* SQL & Aptitude Evaluation */
-                <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-6 sm:p-8 space-y-6">
-                  <div>
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-bold mb-2">
-                      <Database className="h-3.5 w-3.5" />
-                      <span>SQL & Placement Aptitude Challenge</span>
-                    </div>
-                    <h2 className="text-xl font-bold text-primary-text">
-                      Query Scenarios & Quantitative Practice
-                    </h2>
-                    <p className="text-xs text-secondary-text mt-1 max-w-xl">
-                      Solve the target SQL queries and aptitude problems on competitive platforms.
-                    </p>
-                  </div>
-
-                  <div className="space-y-3">
-                    {(topic.practice_items?.length > 0
-                      ? topic.practice_items
-                      : [
-                          {
-                            title: `${topic.title} Core Placement Challenge`,
-                            platform: "Placement Practice",
-                            difficulty: "Medium",
-                            url: "https://leetcode.com/problemset/database/",
-                            description: "Practice core relational queries and analytical calculations.",
-                          },
-                        ]
-                    ).map((item, iIdx) => {
-                      const taskKey = `sql_${iIdx}`;
-                      const isTaskChecked = checkedTaskIds.has(taskKey);
-
-                      return (
-                        <div
-                          key={iIdx}
-                          className={`p-4 rounded-2xl border transition-all flex items-center justify-between gap-4 ${
-                            isTaskChecked
-                              ? "bg-emerald-50/50 border-emerald-200"
-                              : "bg-background/60 border-border-subtle hover:border-brand-200"
-                          }`}
-                        >
-                          <div className="flex items-center gap-3.5 min-w-0">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleTask(taskKey)}
-                              className="shrink-0 transition-transform active:scale-90"
-                            >
-                              {isTaskChecked ? (
-                                <CheckCircle2 className="h-5 w-5 text-emerald-600 fill-emerald-100" />
-                              ) : (
-                                <Circle className="h-5 w-5 text-secondary-text" />
-                              )}
-                            </button>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h4
-                                  className={`text-xs sm:text-sm font-bold truncate ${
-                                    isTaskChecked
-                                      ? "line-through text-emerald-900 opacity-80"
-                                      : "text-primary-text"
-                                  }`}
-                                >
-                                  {item.title}
-                                </h4>
-                                {item.platform && (
-                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                    {item.platform}
-                                  </span>
-                                )}
-                                {item.difficulty && (
-                                  <span
-                                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                      item.difficulty === "Easy"
-                                        ? "bg-emerald-100 text-emerald-800"
-                                        : item.difficulty === "Medium"
-                                        ? "bg-amber-100 text-amber-800"
-                                        : "bg-red-100 text-red-800"
-                                    }`}
-                                  >
-                                    {item.difficulty}
-                                  </span>
-                                )}
-                              </div>
-                              {item.description && (
-                                <p className="text-[11px] text-secondary-text mt-0.5 line-clamp-2">
-                                  {item.description}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-
-                          {item.url && (
-                            <a
-                              href={item.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface border border-border-subtle hover:bg-background text-xs font-bold text-primary-text transition-all shrink-0 hover:border-brand-300"
-                            >
-                              <span>Solve Challenge ↗</span>
-                            </a>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                /* Development Evaluation: Assignment Specification & Practical Checklist */
-                <div className="space-y-6">
-                  {topic.practice_items?.map((item, pIdx) => (
-                    <div
-                      key={pIdx}
-                      className="bg-surface rounded-3xl border border-border-subtle shadow-card p-6 sm:p-8 space-y-6"
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                        <div>
-                          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-50 text-brand-700 text-xs font-bold mb-2">
-                            <Target className="h-3.5 w-3.5" />
-                            <span>Practical Engineering Assignment</span>
-                          </div>
-                          <h2 className="text-xl font-bold text-primary-text">
-                            {item.title}
-                          </h2>
-                          <p className="text-xs text-secondary-text mt-1.5 leading-relaxed max-w-2xl">
-                            {item.description}
-                          </p>
-                        </div>
-
-                        {item.starterCodeUrl && (
-                          <a
-                            href={item.starterCodeUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-background border border-border-subtle hover:border-brand-200 text-xs font-bold text-primary-text transition-all shrink-0"
-                          >
-                            <span>Reference Spec</span>
-                            <ExternalLink className="h-3.5 w-3.5 text-secondary-text" />
-                          </a>
-                        )}
+                        <h2 className="text-xl font-bold text-primary-text">
+                          Curated Problem Solving Challenge
+                        </h2>
+                        <p className="text-xs text-secondary-text mt-1 max-w-xl">
+                          Solve the target algorithmic problems on LeetCode. Verify your edge cases and check off items once completed.
+                        </p>
                       </div>
 
-                      {/* Assignment Verification Checklist */}
-                      {item.checklist?.length > 0 && (
-                        <div className="space-y-3 pt-2">
-                          <h4 className="text-xs font-bold text-primary-text uppercase tracking-wider">
-                            Implementation Milestones:
-                          </h4>
+                      <div className="space-y-3">
+                        {(topic.practice_items?.length > 0
+                          ? topic.practice_items
+                          : [
+                            {
+                              title: `${topic.title} Warmup & Boundary Validation`,
+                              difficulty: "Easy",
+                              url: "https://leetcode.com/problemset/all/",
+                              problemId: "1",
+                            },
+                            {
+                              title: `${topic.title} Core Interview Pattern`,
+                              difficulty: "Medium",
+                              url: "https://leetcode.com/problemset/all/",
+                              problemId: "2",
+                            },
+                          ]
+                        ).map((prob, pIdx) => {
+                          const taskKey = `prob_${prob.problemId || pIdx}`;
+                          const isTaskChecked = checkedTaskIds.has(taskKey);
 
-                          <div className="space-y-2">
-                            {item.checklist.map((step, sIdx) => {
-                              const stepKey = `task_${pIdx}_${sIdx}`;
-                              const isStepChecked = checkedTaskIds.has(stepKey);
-
-                              return (
-                                <div
-                                  key={sIdx}
-                                  onClick={() => handleToggleTask(stepKey)}
-                                  className={`p-3.5 rounded-2xl border transition-all flex items-start gap-3 cursor-pointer select-none ${
-                                    isStepChecked
-                                      ? "bg-emerald-50/50 border-emerald-200/80"
-                                      : "bg-background/60 border-border-subtle hover:border-brand-200"
-                                  }`}
+                          return (
+                            <div
+                              key={pIdx}
+                              className={`p-4 rounded-2xl border transition-all flex items-center justify-between gap-4 ${isTaskChecked
+                                ? "bg-emerald-50/50 border-emerald-200"
+                                : "bg-background/60 border-border-subtle hover:border-brand-200"
+                                }`}
+                            >
+                              <div className="flex items-center gap-3.5 min-w-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleTask(taskKey)}
+                                  className="shrink-0 transition-transform active:scale-90"
                                 >
-                                  <button
-                                    type="button"
-                                    className="shrink-0 mt-0.5 transition-transform active:scale-90"
-                                  >
-                                    {isStepChecked ? (
-                                      <CheckCircle2 className="h-4 w-4 text-emerald-600 fill-emerald-100" />
-                                    ) : (
-                                      <Circle className="h-4 w-4 text-secondary-text/70" />
-                                    )}
-                                  </button>
-                                  <span
-                                    className={`text-xs font-medium ${
-                                      isStepChecked
-                                        ? "text-emerald-950 line-through opacity-80"
+                                  {isTaskChecked ? (
+                                    <CheckCircle2 className="h-5 w-5 text-emerald-600 fill-emerald-100" />
+                                  ) : (
+                                    <Circle className="h-5 w-5 text-secondary-text" />
+                                  )}
+                                </button>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <h4
+                                      className={`text-xs sm:text-sm font-bold truncate ${isTaskChecked
+                                        ? "line-through text-emerald-900 opacity-80"
                                         : "text-primary-text"
-                                    }`}
-                                  >
-                                    {step}
-                                  </span>
+                                        }`}
+                                    >
+                                      {prob.problemId && !prob.problemId.startsWith("gfg") ? `#${prob.problemId} ` : ""}{prob.title}
+                                    </h4>
+                                    <span
+                                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${prob.difficulty === "Easy"
+                                        ? "bg-emerald-100 text-emerald-800"
+                                        : prob.difficulty === "Medium"
+                                          ? "bg-amber-100 text-amber-800"
+                                          : "bg-red-100 text-red-800"
+                                        }`}
+                                    >
+                                      {prob.difficulty || "Medium"}
+                                    </span>
+                                  </div>
+                                  {prob.description && (
+                                    <p className="text-[11px] text-secondary-text mt-0.5 line-clamp-1">
+                                      {prob.description}
+                                    </p>
+                                  )}
                                 </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
+                              </div>
+
+                              <a
+                                href={prob.url || "https://leetcode.com"}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface border border-border-subtle hover:bg-background text-xs font-bold text-primary-text transition-all shrink-0 hover:border-brand-300"
+                              >
+                                <span>
+                                  {prob.platform
+                                    ? `Solve on ${prob.platform} ↗`
+                                    : prob.url?.includes("geeksforgeeks")
+                                      ? "Solve on GFG ↗"
+                                      : "Solve on LeetCode ↗"}
+                                </span>
+                              </a>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              )}
+                  ) : pillarKey === "cs" ? (
+                    /* CS Fundamentals Evaluation: Flashcards / Screening Questions */
+                    <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-6 sm:p-8 space-y-6">
+                      <div>
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold mb-2">
+                          <Cpu className="h-3.5 w-3.5" />
+                          <span>Technical Screening Flashcards</span>
+                        </div>
+                        <h2 className="text-xl font-bold text-primary-text">
+                          Core Interview Q&A Self-Evaluation
+                        </h2>
+                        <p className="text-xs text-secondary-text mt-1 max-w-xl">
+                          Review each key screening question. Test yourself before expanding the answer.
+                        </p>
+                      </div>
 
-              {/* Master Confirmation Banner */}
-              <div className="bg-surface rounded-3xl border border-border-subtle p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-card">
-                <div className="space-y-1 text-center sm:text-left">
-                  <h3 className="text-sm font-bold text-primary-text">
-                    {isCompleted
-                      ? "Topic Completed! Ready for next roadmap module."
-                      : isLocked
-                      ? "Assessment Required: Pass Quiz to Complete"
-                      : "Finished practicing this module?"}
-                  </h3>
-                  <p className="text-xs text-secondary-text">
-                    {isLocked
-                      ? "You must score at least 70% on the topic assessment before marking this topic as completed."
-                      : "Marking this topic as completed synchronizes your progress across your Dashboard and Roadmap."}
-                  </p>
-                </div>
+                      <div className="space-y-3">
+                        {(topic.practice_items?.length > 0 && topic.practice_items[0]?.question
+                          ? topic.practice_items
+                          : [
+                            {
+                              question: `How is "${topic.title}" tested in campus & company placement rounds?`,
+                              answer:
+                                "Interviewers test whether you understand the underlying operating system or runtime mechanism rather than superficial syntax. Be ready to trace execution order and explain resource limits.",
+                              difficulty: "Core Screening",
+                            },
+                            {
+                              question: "What are the common concurrency and memory pitfalls associated with this concept?",
+                              answer:
+                                "Memory leaks due to lingering event listeners or unclosed streams, thread starvation, and unhandled promise rejections causing process exit in production.",
+                              difficulty: "Classic Interview",
+                            },
+                            {
+                              question: "How would you optimize this under high-throughput production load?",
+                              answer:
+                                "Implement backpressure handling, utilize clustering or worker threads for CPU spikes, and employ caching layers like Redis to minimize repeat computation.",
+                              difficulty: "Systems Architecture",
+                            },
+                          ]
+                        ).map((qa, qIdx) => {
+                          const isExpanded = expandedQuestionIdx === qIdx;
+                          return (
+                            <div
+                              key={qIdx}
+                              className="rounded-2xl border border-border-subtle overflow-hidden bg-background/50 transition-all"
+                            >
+                              <div
+                                onClick={() =>
+                                  setExpandedQuestionIdx(isExpanded ? null : qIdx)
+                                }
+                                className="p-4 flex items-center justify-between gap-4 cursor-pointer hover:bg-background select-none"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <HelpCircle className="h-4 w-4 text-brand-600 shrink-0" />
+                                  <div>
+                                    <h4 className="text-xs sm:text-sm font-bold text-primary-text">
+                                      {qa.question}
+                                    </h4>
+                                    {qa.difficulty && (
+                                      <span className="text-[10px] font-semibold text-secondary-text mt-0.5 inline-block">
+                                        {qa.difficulty}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <span className="text-xs text-secondary-text font-medium flex items-center gap-1 shrink-0">
+                                  {isExpanded ? (
+                                    <>
+                                      <span>Hide</span>
+                                      <ChevronUp className="h-4 w-4" />
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span>Show Answer</span>
+                                      <ChevronDown className="h-4 w-4" />
+                                    </>
+                                  )}
+                                </span>
+                              </div>
 
-                <button
-                  type="button"
-                  disabled={togglingCompletion || isLocked}
-                  onClick={handleToggleMasterCompletion}
-                  title={isLocked ? "Pass assessment (>=70%) to unlock completion" : undefined}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-bold transition-all shadow-subtle shrink-0 ${
-                    isLocked
-                      ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-80"
-                      : isCompleted
-                      ? "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer hover:shadow-hover"
-                      : "bg-brand-600 hover:bg-brand-700 text-white cursor-pointer hover:shadow-hover"
-                  }`}
-                >
-                  {togglingCompletion ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin text-white" />
-                      <span>Saving...</span>
-                    </>
-                  ) : isCompleted ? (
-                    <>
-                      <CheckCircle2 className="h-4 w-4 text-white" />
-                      <span>Marked Complete ✓</span>
-                    </>
-                  ) : isLocked ? (
-                    <>
-                      <Lock className="h-4 w-4 text-amber-500" />
-                      <span>Pass Quiz to Unlock</span>
-                    </>
+                              {isExpanded && (
+                                <div className="px-4 pb-4 pt-1 border-t border-border-subtle/60 text-xs text-secondary-text leading-relaxed bg-surface animate-fade-in">
+                                  <p className="font-medium text-primary-text mb-1">
+                                    Interview Answer Framework:
+                                  </p>
+                                  {qa.answer}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : pillarKey === "apt_sql" ? (
+                    /* SQL & Aptitude Evaluation */
+                    <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-6 sm:p-8 space-y-6">
+                      <div>
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-bold mb-2">
+                          <Database className="h-3.5 w-3.5" />
+                          <span>SQL & Placement Aptitude Challenge</span>
+                        </div>
+                        <h2 className="text-xl font-bold text-primary-text">
+                          Query Scenarios & Quantitative Practice
+                        </h2>
+                        <p className="text-xs text-secondary-text mt-1 max-w-xl">
+                          Solve the target SQL queries and aptitude problems on competitive platforms.
+                        </p>
+                      </div>
+
+                      <div className="space-y-3">
+                        {(topic.practice_items?.length > 0
+                          ? topic.practice_items
+                          : [
+                            {
+                              title: `${topic.title} Core Placement Challenge`,
+                              platform: "Placement Practice",
+                              difficulty: "Medium",
+                              url: "https://leetcode.com/problemset/database/",
+                              description: "Practice core relational queries and analytical calculations.",
+                            },
+                          ]
+                        ).map((item, iIdx) => {
+                          const taskKey = `sql_${iIdx}`;
+                          const isTaskChecked = checkedTaskIds.has(taskKey);
+
+                          return (
+                            <div
+                              key={iIdx}
+                              className={`p-4 rounded-2xl border transition-all flex items-center justify-between gap-4 ${isTaskChecked
+                                ? "bg-emerald-50/50 border-emerald-200"
+                                : "bg-background/60 border-border-subtle hover:border-brand-200"
+                                }`}
+                            >
+                              <div className="flex items-center gap-3.5 min-w-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleTask(taskKey)}
+                                  className="shrink-0 transition-transform active:scale-90"
+                                >
+                                  {isTaskChecked ? (
+                                    <CheckCircle2 className="h-5 w-5 text-emerald-600 fill-emerald-100" />
+                                  ) : (
+                                    <Circle className="h-5 w-5 text-secondary-text" />
+                                  )}
+                                </button>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <h4
+                                      className={`text-xs sm:text-sm font-bold truncate ${isTaskChecked
+                                        ? "line-through text-emerald-900 opacity-80"
+                                        : "text-primary-text"
+                                        }`}
+                                    >
+                                      {item.title}
+                                    </h4>
+                                    {item.platform && (
+                                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                        {item.platform}
+                                      </span>
+                                    )}
+                                    {item.difficulty && (
+                                      <span
+                                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${item.difficulty === "Easy"
+                                          ? "bg-emerald-100 text-emerald-800"
+                                          : item.difficulty === "Medium"
+                                            ? "bg-amber-100 text-amber-800"
+                                            : "bg-red-100 text-red-800"
+                                          }`}
+                                      >
+                                        {item.difficulty}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {item.description && (
+                                    <p className="text-[11px] text-secondary-text mt-0.5 line-clamp-2">
+                                      {item.description}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              {item.url && (
+                                <a
+                                  href={item.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface border border-border-subtle hover:bg-background text-xs font-bold text-primary-text transition-all shrink-0 hover:border-brand-300"
+                                >
+                                  <span>Solve Challenge ↗</span>
+                                </a>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   ) : (
-                    <>
-                      <CheckSquare className="h-4 w-4" />
-                      <span>Confirm & Mark Completed</span>
-                    </>
+                    /* Development Evaluation: Assignment Specification & Practical Checklist */
+                    <div className="space-y-6">
+                      {topic.practice_items?.map((item, pIdx) => (
+                        <div
+                          key={pIdx}
+                          className="bg-surface rounded-3xl border border-border-subtle shadow-card p-6 sm:p-8 space-y-6"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                            <div>
+                              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-50 text-brand-700 text-xs font-bold mb-2">
+                                <Target className="h-3.5 w-3.5" />
+                                <span>Practical Engineering Assignment</span>
+                              </div>
+                              <h2 className="text-xl font-bold text-primary-text">
+                                {item.title}
+                              </h2>
+                              <p className="text-xs text-secondary-text mt-1.5 leading-relaxed max-w-2xl">
+                                {item.description}
+                              </p>
+                            </div>
+
+                            {item.starterCodeUrl && (
+                              <a
+                                href={item.starterCodeUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-background border border-border-subtle hover:border-brand-200 text-xs font-bold text-primary-text transition-all shrink-0"
+                              >
+                                <span>Reference Spec</span>
+                                <ExternalLink className="h-3.5 w-3.5 text-secondary-text" />
+                              </a>
+                            )}
+                          </div>
+
+                          {/* Assignment Verification Checklist */}
+                          {item.checklist?.length > 0 && (
+                            <div className="space-y-3 pt-2">
+                              <h4 className="text-xs font-bold text-primary-text uppercase tracking-wider">
+                                Implementation Milestones:
+                              </h4>
+
+                              <div className="space-y-2">
+                                {item.checklist.map((step, sIdx) => {
+                                  const stepKey = `task_${pIdx}_${sIdx}`;
+                                  const isStepChecked = checkedTaskIds.has(stepKey);
+
+                                  return (
+                                    <div
+                                      key={sIdx}
+                                      onClick={() => handleToggleTask(stepKey)}
+                                      className={`p-3.5 rounded-2xl border transition-all flex items-start gap-3 cursor-pointer select-none ${isStepChecked
+                                        ? "bg-emerald-50/50 border-emerald-200/80"
+                                        : "bg-background/60 border-border-subtle hover:border-brand-200"
+                                        }`}
+                                    >
+                                      <button
+                                        type="button"
+                                        className="shrink-0 mt-0.5 transition-transform active:scale-90"
+                                      >
+                                        {isStepChecked ? (
+                                          <CheckCircle2 className="h-4 w-4 text-emerald-600 fill-emerald-100" />
+                                        ) : (
+                                          <Circle className="h-4 w-4 text-secondary-text/70" />
+                                        )}
+                                      </button>
+                                      <span
+                                        className={`text-xs font-medium ${isStepChecked
+                                          ? "text-emerald-950 line-through opacity-80"
+                                          : "text-primary-text"
+                                          }`}
+                                      >
+                                        {step}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   )}
-                </button>
-              </div>
+
+                  {/* Master Confirmation Banner */}
+                  <div className="bg-surface rounded-3xl border border-border-subtle p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-card">
+                    <div className="space-y-1 text-center sm:text-left">
+                      <h3 className="text-sm font-bold text-primary-text">
+                        {isCompleted
+                          ? "Topic Completed! Ready for next roadmap module."
+                          : isLocked
+                            ? "Assessment Required: Pass Quiz to Complete"
+                            : "Finished practicing this module?"}
+                      </h3>
+                      <p className="text-xs text-secondary-text">
+                        {isLocked
+                          ? "You must score at least 70% on the topic assessment before marking this topic as completed."
+                          : "Marking this topic as completed synchronizes your progress across your Dashboard and Roadmap."}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={togglingCompletion || isLocked}
+                      onClick={handleToggleMasterCompletion}
+                      title={isLocked ? "Pass assessment (>=70%) to unlock completion" : undefined}
+                      className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-bold transition-all shadow-subtle shrink-0 ${isLocked
+                        ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-80"
+                        : isCompleted
+                          ? "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer hover:shadow-hover"
+                          : "bg-brand-600 hover:bg-brand-700 text-white cursor-pointer hover:shadow-hover"
+                        }`}
+                    >
+                      {togglingCompletion ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin text-white" />
+                          <span>Saving...</span>
+                        </>
+                      ) : isCompleted ? (
+                        <>
+                          <CheckCircle2 className="h-4 w-4 text-white" />
+                          <span>Marked Complete ✓</span>
+                        </>
+                      ) : isLocked ? (
+                        <>
+                          <Lock className="h-4 w-4 text-amber-500" />
+                          <span>Pass Quiz to Unlock</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckSquare className="h-4 w-4" />
+                          <span>Confirm & Mark Completed</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </>
               )}
             </div>
