@@ -180,15 +180,19 @@ const getTopicDetail = async (req, res) => {
         .map((r) => ({ title: r.title, url: r.url }));
     }
 
-    // Fallback: If videoLinks is empty, pull video resources
-    if (videoLinks.length === 0) {
-      videoLinks = resourcesRes.rows
-        .filter((r) => r.resource_type === "video")
-        .map((r) => ({
+    // Fallback: If videoLinks is empty OR contains search query placeholders, prioritize real video from resources
+    const hasRealVideo = videoLinks.some((v) => v.url && !v.url.includes("search_query"));
+    if (!hasRealVideo) {
+      const realVideoRes = resourcesRes.rows.filter(
+        (r) => r.resource_type === "video" && !r.url.includes("search_query")
+      );
+      if (realVideoRes.length > 0) {
+        videoLinks = realVideoRes.map((r) => ({
           title: r.title,
           url: r.url,
           duration: `${r.estimated_minutes || 20}m`,
         }));
+      }
     }
 
     // Default theory summary if empty
@@ -197,11 +201,52 @@ const getTopicDetail = async (req, res) => {
       row.theory_summary ||
       `### 🎯 ${row.name}\n\n${row.description || "Core placement module designed for engineering preparation."}\n\n- Master foundational principles and core architecture.\n- Practice production implementations and boundary edge-cases.\n- Prepare for technical interview discussion points.`;
 
+    let practiceItems = Array.isArray(row.practice_items) ? row.practice_items : [];
+
+    // Fallback: If practice_items is empty or only has a single generic placeholder assignment,
+    // but the resources table has real practice problems, use the resources
+    const hasOnlyPlaceholderAssignment =
+      practiceItems.length <= 1 &&
+      practiceItems[0]?.type === "assignment";
+
+    const practiceResources = resourcesRes.rows.filter(
+      (r) => r.resource_type === "practice" || r.resource_type === "problem"
+    );
+
+    if ((practiceItems.length === 0 || hasOnlyPlaceholderAssignment) && practiceResources.length > 0) {
+      practiceItems = practiceResources.map((r, idx) => {
+        const isGfg = r.url?.includes("geeksforgeeks.org");
+        const platform = isGfg ? "GeeksforGeeks" : "LeetCode";
+
+        let title = r.title || "Practice Problem";
+        let difficulty = "Medium";
+
+        if (title.includes("(Easy)")) difficulty = "Easy";
+        else if (title.includes("(Hard)")) difficulty = "Hard";
+        else if (title.includes("(Medium)")) difficulty = "Medium";
+
+        title = title
+          .replace(/^\[(LeetCode|GeeksforGeeks|GFG|Practice)\]\s*/i, "")
+          .replace(/\s*\((Easy|Medium|Hard)\)$/i, "")
+          .trim();
+
+        return {
+          title,
+          problemId: `${idx + 1}`,
+          platform,
+          difficulty,
+          url: r.url,
+          description: `Solve on ${platform}`,
+        };
+      });
+    }
+
     const topicData = {
       id: row.id,
       title: row.name,
       name: row.name,
       slug: row.slug,
+      video_url: videoLinks[0]?.url || null,
       subtrack: row.subtrack,
       description: row.description,
       estimated_minutes: row.estimated_minutes || 45,
@@ -218,7 +263,7 @@ const getTopicDetail = async (req, res) => {
       theory_summary: theorySummary,
       doc_links: docLinks,
       video_links: videoLinks,
-      practice_items: Array.isArray(row.practice_items) ? row.practice_items : [],
+      practice_items: practiceItems,
       resources: resourcesRes.rows,
     };
 

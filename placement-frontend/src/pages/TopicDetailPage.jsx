@@ -39,6 +39,11 @@ import {
 // Helper to extract YouTube video embed URL
 const getYouTubeEmbedUrl = (url) => {
   if (!url) return null;
+  // If it is already an embed URL
+  if (url.includes("youtube.com/embed/")) {
+    return url;
+  }
+  // Extract 11-character video ID from any standard YouTube format
   const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
   return match ? `https://www.youtube.com/embed/${match[1]}` : null;
 };
@@ -692,23 +697,47 @@ export const TopicDetailPage = () => {
               <div className="space-y-6">
                 {/* 1. Primary Embedded YouTube Video Lecture */}
                 {(() => {
-                  const primaryVideo =
-                    topic.video_links?.[0] ||
-                    topic.resources?.find((r) => r.resource_type === "video");
-                  const embedUrl = getYouTubeEmbedUrl(primaryVideo?.url);
+                  // Check all possible property variants returned by backend
+                  const rawVideoUrl =
+                    topic?.video_url ||
+                    topic?.videoUrl ||
+                    topic?.youtube_url ||
+                    topic?.video ||
+                    topic?.video_links?.map((v) => (typeof v === "string" ? v : v?.url)).find((u) => getYouTubeEmbedUrl(u)) ||
+                    topic?.resources?.find((r) => r.resource_type === "video" && getYouTubeEmbedUrl(r.url))?.url ||
+                    (typeof topic?.video_links?.[0] === "string" ? topic.video_links[0] : topic?.video_links?.[0]?.url) ||
+                    topic?.resources?.find((r) => r.resource_type === "video")?.url;
 
-                  if (embedUrl) {
-                    return (
-                      <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-5 sm:p-6 space-y-3">
-                        <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
-                          <div className="flex items-center gap-2">
-                            <PlayCircle className="h-4 w-4 text-red-500" />
-                            <h3 className="text-xs font-bold text-primary-text uppercase tracking-wider">
-                              Embedded Video Lecture
-                            </h3>
-                          </div>
+                  const primaryVideo =
+                    topic?.video_links?.find((v) => getYouTubeEmbedUrl(typeof v === "string" ? v : v?.url)) ||
+                    topic?.resources?.find((r) => r.resource_type === "video" && getYouTubeEmbedUrl(r.url)) ||
+                    topic?.video_links?.[0] ||
+                    topic?.resources?.find((r) => r.resource_type === "video");
+
+                  const embedUrl = getYouTubeEmbedUrl(rawVideoUrl);
+                  const videoTitle =
+                    (typeof primaryVideo === "object" ? primaryVideo?.title : null) ||
+                    topic?.title ||
+                    topic?.name ||
+                    "Video Lecture";
+
+                  const videoWatchUrl =
+                    rawVideoUrl && !rawVideoUrl.includes("results?search_query")
+                      ? rawVideoUrl
+                      : null;
+
+                  return (
+                    <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-5 sm:p-6 space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
+                        <div className="flex items-center gap-2">
+                          <PlayCircle className="h-4 w-4 text-red-500" />
+                          <h3 className="text-xs font-bold text-primary-text uppercase tracking-wider">
+                            Embedded Video Lecture
+                          </h3>
+                        </div>
+                        {videoWatchUrl && (
                           <a
-                            href={primaryVideo.url}
+                            href={videoWatchUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-[11px] font-medium text-secondary-text hover:text-red-500 flex items-center gap-1 transition-colors"
@@ -716,76 +745,39 @@ export const TopicDetailPage = () => {
                             <span>Open on YouTube</span>
                             <ExternalLink className="h-3 w-3" />
                           </a>
-                        </div>
+                        )}
+                      </div>
 
-                        <div className="aspect-video w-full rounded-2xl overflow-hidden border border-border-subtle bg-black shadow-subtle">
+                      {embedUrl ? (
+                        <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-gray-200 dark:border-gray-800 bg-black shadow-sm">
                           <iframe
-                            className="w-full h-full"
                             src={embedUrl}
-                            title={primaryVideo.title || "Lecture Video"}
+                            title={videoTitle}
+                            className="w-full h-full"
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                             allowFullScreen
                           />
                         </div>
-
-                        {primaryVideo.title && (
-                          <div className="pt-1">
-                            <h4 className="text-xs font-bold text-primary-text leading-snug line-clamp-2">
-                              {primaryVideo.title}
-                            </h4>
-                            {primaryVideo.duration && (
-                              <p className="text-[10px] text-secondary-text mt-0.5">
-                                ⏱ Duration: {primaryVideo.duration}
-                              </p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  }
-
-                  if (topic.video_links?.length > 0) {
-                    return (
-                      <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-5 sm:p-6 space-y-4">
-                        <div className="flex items-center gap-2 pb-2 border-b border-border-subtle">
-                          <PlayCircle className="h-4 w-4 text-red-500" />
-                          <h3 className="text-xs font-bold text-primary-text uppercase tracking-wider">
-                            Curated Video Lectures
-                          </h3>
+                      ) : (
+                        <div className="p-4 text-center text-sm text-gray-500">
+                          No video available for this topic.
                         </div>
-                        <div className="space-y-2.5">
-                          {topic.video_links.map((video, vIdx) => (
-                            <a
-                              key={vIdx}
-                              href={video.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-3 rounded-2xl border border-border-subtle/80 bg-background/60 hover:bg-background hover:border-red-200 transition-all flex items-start justify-between gap-3 group"
-                            >
-                              <div className="flex items-start gap-2.5 min-w-0">
-                                <div className="h-8 w-8 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                                  <PlayCircle className="h-4 w-4" />
-                                </div>
-                                <div className="min-w-0">
-                                  <h4 className="text-xs font-bold text-primary-text group-hover:text-brand-600 transition-colors line-clamp-2">
-                                    {video.title}
-                                  </h4>
-                                  {video.duration && (
-                                    <p className="text-[10px] text-secondary-text mt-0.5">
-                                      ⏱ {video.duration}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                              <ExternalLink className="h-3.5 w-3.5 text-secondary-text/50 group-hover:text-primary-text shrink-0 mt-1" />
-                            </a>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  }
+                      )}
 
-                  return null;
+                      {typeof primaryVideo === "object" && primaryVideo?.title && (
+                        <div className="pt-1">
+                          <h4 className="text-xs font-bold text-primary-text leading-snug line-clamp-2">
+                            {primaryVideo.title}
+                          </h4>
+                          {primaryVideo.duration && (
+                            <p className="text-[10px] text-secondary-text mt-0.5">
+                              ⏱ Duration: {primaryVideo.duration}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
                 })()}
 
                 {/* 2. Interactive Target Practice Problems */}

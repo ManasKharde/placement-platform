@@ -474,7 +474,7 @@ Part of the **${trackName || "Software Engineering"}** curriculum designed for m
 
   // 4. Fetch all topics from DB and update their content
   const topicsRes = await pool.query(`
-    SELECT t.id, t.name, t.slug, tr.name AS track_name
+    SELECT t.id, t.name, t.slug, t.video_links, t.practice_items, tr.name AS track_name
     FROM topics t
     LEFT JOIN track_topics tt ON t.id = tt.topic_id
     LEFT JOIN tracks tr ON tt.track_id = tr.id
@@ -486,6 +486,23 @@ Part of the **${trackName || "Software Engineering"}** curriculum designed for m
     const specific = topicContents[row.slug];
     const content = specific || generateFallbackContent(row.name, row.slug, row.track_name);
 
+    // Preserve real video links if already present and content is fallback
+    const hasExistingRealVideo =
+      Array.isArray(row.video_links) &&
+      row.video_links.some((v) => v.url && !v.url.includes("search_query"));
+    const videoLinksToSave =
+      specific?.video_links ||
+      (hasExistingRealVideo ? row.video_links : content.video_links);
+
+    // Preserve real practice items if already present (e.g. from DSA batches)
+    const hasExistingPractice =
+      Array.isArray(row.practice_items) &&
+      row.practice_items.length > 0 &&
+      row.practice_items[0].type !== "assignment";
+    const practiceItemsToSave =
+      specific?.practice_items ||
+      (hasExistingPractice ? row.practice_items : content.practice_items);
+
     await pool.query(
       `UPDATE topics 
        SET theory_summary = $1,
@@ -496,8 +513,8 @@ Part of the **${trackName || "Software Engineering"}** curriculum designed for m
       [
         content.theory_summary,
         JSON.stringify(content.doc_links),
-        JSON.stringify(content.video_links),
-        JSON.stringify(content.practice_items),
+        JSON.stringify(videoLinksToSave),
+        JSON.stringify(practiceItemsToSave),
         row.id,
       ]
     );
