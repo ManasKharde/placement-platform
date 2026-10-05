@@ -1,5 +1,5 @@
 const router = require("express").Router();
-const { getAllPaths, getPathById, getTrackTopics, selectUserPath, getUserPath, getUserRoadmap, getUserReadiness } = require("../controllers/preparationController");
+const { getAllPaths, getPathById, getAllTracks, getTrackTopics, selectUserPath, getUserPath, getUserRoadmap, getUserReadiness } = require("../controllers/preparationController");
 const { authenticateToken } = require("../middleware/auth");
 
 /**
@@ -33,6 +33,7 @@ router.get("/preparation-paths", authenticateToken, getAllPaths);
  *         description: Deeply nested tracks and topics roadmap
  */
 router.get("/preparation-paths/:id", authenticateToken, getPathById);
+router.get("/tracks", authenticateToken, getAllTracks);
 router.get("/tracks/:id/topics", authenticateToken, getTrackTopics);
 
 router.post("/user/preparation-path", authenticateToken, selectUserPath);

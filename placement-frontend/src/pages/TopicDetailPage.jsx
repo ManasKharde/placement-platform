@@ -48,10 +48,11 @@ const getYouTubeEmbedUrl = (url) => {
   return match ? `https://www.youtube.com/embed/${match[1]}` : null;
 };
 
-// Sanitizes raw LaTeX commands and $ wrappers from text lines
+// Sanitizes raw LaTeX commands and $ wrappers from text lines, plus strips html tags like <br>
 const sanitizeLine = (text) => {
   if (!text) return "";
   return text
+    .replace(/<br\s*\/?>/gi, " ")
     .replace(/\\to/g, "→")
     .replace(/\\infty/g, "∞")
     .replace(/\\log/g, "log")
@@ -123,8 +124,47 @@ const SimpleMarkdown = ({ content }) => {
         return (
           <div key={idx} className="space-y-2">
             {lines.map((line, lIdx) => {
-              const trimmed = sanitizeLine(line.trim());
+              let trimmed = sanitizeLine(line.trim());
               if (!trimmed) return null;
+
+              // Filter out horizontal rules (---, ***, ___ etc.)
+              if (/^[-*_]{3,}$/.test(trimmed)) return null;
+
+              // Filter out markdown table separators (|---|---| or |:---|:---|)
+              if (/^\|[-:\s|]+\|$/.test(trimmed)) return null;
+
+              // If a pipe table line was present e.g. | Col 1 | Col 2 |
+              if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
+                const cells = trimmed
+                  .slice(1, -1)
+                  .split("|")
+                  .map((c) => c.trim())
+                  .filter(Boolean);
+                if (cells.length === 0) return null;
+                return (
+                  <div key={lIdx} className="flex items-start gap-2.5 ml-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-brand-500 mt-2 shrink-0" />
+                    <span
+                      className="text-secondary-text"
+                      dangerouslySetInnerHTML={{
+                        __html: cells
+                          .map((c) =>
+                            c
+                              .replace(/\*\*(.*?)\*\*/g, '<strong class="text-primary-text font-bold">$1</strong>')
+                              .replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 rounded bg-background border border-border-subtle font-mono text-[11px] text-brand-600 font-semibold">$1</code>')
+                          )
+                          .join(" — "),
+                      }}
+                    />
+                  </div>
+                );
+              }
+
+              // Strip blockquote '>' prefix
+              if (trimmed.startsWith(">")) {
+                trimmed = trimmed.replace(/^>\s*/, "");
+                if (!trimmed) return null;
+              }
 
               if (trimmed.startsWith("### ")) {
                 return (
@@ -450,6 +490,7 @@ export const TopicDetailPage = () => {
         return <Terminal className="h-4 w-4" />;
       case "cs":
         return <Cpu className="h-4 w-4" />;
+      case "databases":
       case "apt_sql":
         return <Database className="h-4 w-4" />;
       default:
@@ -459,6 +500,13 @@ export const TopicDetailPage = () => {
 
   const isCompleted = topic?.status === "completed";
   const pillarKey = topic?.pillar?.key || "dev";
+  const isDatabaseTopic =
+    pillarKey === "databases" ||
+    topic?.pillar?.name === "Databases" ||
+    topic?.track_slug === "postgresql-mastery" ||
+    topic?.track_slug === "mongodb-mastery" ||
+    topic?.track_slug === "databases" ||
+    (topic?.slug && (topic.slug.startsWith("pg-") || topic.slug.startsWith("mongo-")));
   const hasQuiz = Boolean(quizData?.hasQuiz);
   const isQuizPassed = Boolean(quizData?.latest_attempt?.passed);
   const isLocked = hasQuiz && !isQuizPassed && !isCompleted;
@@ -479,7 +527,7 @@ export const TopicDetailPage = () => {
           </button>
           <span>/</span>
           <span className="font-medium text-secondary-text hidden sm:inline">
-            {topic?.pillar?.name || "Pillar"}
+            {isDatabaseTopic ? "Databases" : (topic?.pillar?.name || "Pillar")}
           </span>
           <span className="hidden sm:inline">/</span>
           <span className="font-medium text-secondary-text truncate max-w-[150px]">
@@ -572,8 +620,8 @@ export const TopicDetailPage = () => {
                 <div className="flex flex-wrap items-center gap-2">
                   {/* Pillar Badge */}
                   <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200/80">
-                    {getPillarIcon(pillarKey)}
-                    <span>{topic.pillar?.name || "Core Pillar"}</span>
+                    {getPillarIcon(isDatabaseTopic ? "databases" : pillarKey)}
+                    <span>{isDatabaseTopic ? "Databases" : (topic.pillar?.name || "Core Pillar")}</span>
                   </span>
 
                   {/* Track Pill */}
@@ -608,7 +656,7 @@ export const TopicDetailPage = () => {
                   {topic.title}
                 </h1>
                 <p className="text-xs sm:text-sm text-secondary-text leading-relaxed max-w-3xl">
-                  {topic.description}
+                  {topic.short_description || topic.description}
                 </p>
               </div>
             </div>
@@ -726,6 +774,22 @@ export const TopicDetailPage = () => {
                       ? rawVideoUrl
                       : null;
 
+                  const creatorName =
+                    topic?.creator_name ||
+                    (typeof primaryVideo === "object" ? primaryVideo?.creator_name : null) ||
+                    topic?.video_links?.[0]?.creator_name ||
+                    (topic?.track_id === 654 || topic?.slug?.startsWith("pg-lecture")
+                      ? "Thapa Technical (Vinod Bahadur Thapa)"
+                      : null);
+
+                  const creatorChannelUrl =
+                    topic?.creator_channel_url ||
+                    (typeof primaryVideo === "object" ? primaryVideo?.creator_channel_url : null) ||
+                    topic?.video_links?.[0]?.creator_channel_url ||
+                    (topic?.track_id === 654 || topic?.slug?.startsWith("pg-lecture")
+                      ? "https://www.youtube.com/@ThapaTechnical"
+                      : null);
+
                   return (
                     <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-5 sm:p-6 space-y-3">
                       <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
@@ -774,6 +838,35 @@ export const TopicDetailPage = () => {
                               ⏱ Duration: {primaryVideo.duration}
                             </p>
                           )}
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center justify-between flex-wrap gap-2">
+                            {creatorName && (
+                              <span>
+                                Creator:{" "}
+                                {creatorChannelUrl ? (
+                                  <a
+                                    href={creatorChannelUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="font-medium text-brand-600 dark:text-brand-400 hover:underline"
+                                  >
+                                    {creatorName}
+                                  </a>
+                                ) : (
+                                  <span className="font-medium">{creatorName}</span>
+                                )}
+                              </span>
+                            )}
+                            {rawVideoUrl && (
+                              <a
+                                href={rawVideoUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs font-medium text-red-500 hover:text-red-600 dark:text-red-400 hover:underline inline-flex items-center gap-1"
+                              >
+                                <span>Watch on YouTube ↗</span>
+                              </a>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -781,20 +874,22 @@ export const TopicDetailPage = () => {
                 })()}
 
                 {/* 2. Interactive Target Practice Problems */}
-                {topic.practice_items?.length > 0 && (
-                  <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-5 sm:p-6 space-y-4">
-                    <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
-                      <div className="flex items-center gap-2">
-                        <Terminal className="h-4 w-4 text-purple-600" />
-                        <h3 className="text-xs font-bold text-primary-text uppercase tracking-wider">
-                          Target Practice Problems
-                        </h3>
-                      </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
-                        {topic.practice_items.filter((prob, idx) => checkedTaskIds.has(`prob_${prob.problemId || idx}`)).length} / {topic.practice_items.length} Done
-                      </span>
+                <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-5 sm:p-6 space-y-4">
+                  <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
+                    <div className="flex items-center gap-2">
+                      <Terminal className="h-4 w-4 text-purple-600" />
+                      <h3 className="text-xs font-bold text-primary-text uppercase tracking-wider">
+                        Target Practice Problems
+                      </h3>
                     </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+                      {topic.practice_items?.length > 0
+                        ? `${topic.practice_items.filter((prob, idx) => checkedTaskIds.has(`prob_${prob.problemId || idx}`)).length} / ${topic.practice_items.length} Done`
+                        : "0 / 0 Done"}
+                    </span>
+                  </div>
 
+                  {topic.practice_items?.length > 0 ? (
                     <div className="space-y-2.5">
                       {topic.practice_items.map((prob, pIdx) => {
                         const taskKey = `prob_${prob.problemId || pIdx}`;
@@ -851,7 +946,7 @@ export const TopicDetailPage = () => {
                             </div>
 
                             <a
-                              href={prob.url}
+                              href={prob.url || prob.link || prob.external_url}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface border border-border-subtle hover:bg-background text-[11px] font-bold text-primary-text transition-all shrink-0 hover:border-brand-300"
@@ -864,8 +959,14 @@ export const TopicDetailPage = () => {
                         );
                       })}
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <div className="p-4 rounded-2xl bg-background/60 border border-border-subtle text-center">
+                      <p className="text-xs font-semibold text-secondary-text">
+                        Conceptual & Setup Lecture — No coding judge problems required for this topic.
+                      </p>
+                    </div>
+                  )}
+                </div>
 
                 {/* 3. Recommended Documentation & Guides */}
                 <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-5 sm:p-6 space-y-4">
@@ -904,9 +1005,13 @@ export const TopicDetailPage = () => {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-secondary-text">
-                      No documentation links indexed for this module.
-                    </p>
+                    <div className="p-4 rounded-2xl bg-background/60 border border-border-subtle text-center">
+                      <p className="text-xs text-secondary-text">
+                        {isDatabaseTopic
+                          ? "No external documentation required for this setup guide."
+                          : "No documentation links indexed for this module."}
+                      </p>
+                    </div>
                   )}
                 </div>
               </div>
@@ -1393,7 +1498,113 @@ export const TopicDetailPage = () => {
               {/* Dynamic Pillar Evaluation Interface (Only in overview mode) */}
               {quizMode === "overview" && (
                 <>
-                  {pillarKey === "dsa" ? (
+                  {isDatabaseTopic ? (
+                    /* Database Evaluation: Curated SQL Problems or Conceptual Notice */
+                    <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-6 sm:p-8 space-y-6">
+                      <div>
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-50 text-brand-700 text-xs font-bold mb-2">
+                          <Database className="h-3.5 w-3.5" />
+                          <span>Database Practical Evaluation</span>
+                        </div>
+                        <h2 className="text-xl font-bold text-primary-text">
+                          {topic.practice_items?.length > 0
+                            ? "Curated SQL Problem Solving Challenge"
+                            : "Conceptual & Setup Verification"}
+                        </h2>
+                        <p className="text-xs text-secondary-text mt-1 max-w-xl">
+                          {topic.practice_items?.length > 0
+                            ? "Solve the target SQL queries on LeetCode. Verify your edge cases and check off items once completed."
+                            : "Conceptual & Setup Lecture — No coding judge problems required for this topic. Review the architectural notes and syntax reference before proceeding to practical query lectures."}
+                        </p>
+                      </div>
+
+                      {topic.practice_items?.length > 0 ? (
+                        <div className="space-y-3">
+                          {topic.practice_items.map((prob, pIdx) => {
+                            const taskKey = `prob_${prob.problemId || pIdx}`;
+                            const isTaskChecked = checkedTaskIds.has(taskKey);
+                            const isGfg = prob.platform === "GeeksforGeeks" || prob.url?.includes("geeksforgeeks.org");
+
+                            return (
+                              <div
+                                key={pIdx}
+                                className={`p-4 rounded-2xl border transition-all flex items-center justify-between gap-4 ${isTaskChecked
+                                  ? "bg-emerald-50/50 border-emerald-200"
+                                  : "bg-background/60 border-border-subtle hover:border-brand-200"
+                                  }`}
+                              >
+                                <div className="flex items-center gap-3.5 min-w-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleTask(taskKey)}
+                                    className="shrink-0 transition-transform active:scale-90"
+                                  >
+                                    {isTaskChecked ? (
+                                      <CheckCircle2 className="h-5 w-5 text-emerald-600 fill-emerald-100" />
+                                    ) : (
+                                      <Circle className="h-5 w-5 text-secondary-text" />
+                                    )}
+                                  </button>
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <h4
+                                        className={`text-xs sm:text-sm font-bold truncate ${isTaskChecked
+                                          ? "line-through text-emerald-900 opacity-80"
+                                          : "text-primary-text"
+                                          }`}
+                                      >
+                                        {prob.problemId && !prob.problemId.startsWith("gfg") ? `#${prob.problemId} ` : ""}{prob.title}
+                                      </h4>
+                                      <span
+                                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${prob.difficulty === "Easy"
+                                          ? "bg-emerald-100 text-emerald-800"
+                                          : prob.difficulty === "Medium"
+                                            ? "bg-amber-100 text-amber-800"
+                                            : "bg-red-100 text-red-800"
+                                          }`}
+                                      >
+                                        {prob.difficulty || "Easy"}
+                                      </span>
+                                    </div>
+                                    {prob.description && (
+                                      <p className="text-[11px] text-secondary-text mt-0.5 line-clamp-1">
+                                        {prob.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <a
+                                  href={prob.url || prob.link || prob.external_url || "https://leetcode.com"}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface border border-border-subtle hover:bg-background text-xs font-bold text-primary-text transition-all shrink-0 hover:border-brand-300"
+                                >
+                                  <span>
+                                    {prob.platform
+                                      ? `Solve on ${prob.platform} ↗`
+                                      : isGfg
+                                        ? "Solve on GFG ↗"
+                                        : "Solve on LeetCode ↗"}
+                                  </span>
+                                </a>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="p-6 rounded-2xl bg-background/60 border border-border-subtle text-center space-y-2">
+                          <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto" />
+                          <h3 className="text-sm font-bold text-primary-text">
+                            Conceptual Mastery Module
+                          </h3>
+                          <p className="text-xs text-secondary-text max-w-md mx-auto">
+                            Conceptual & Setup Lecture — No coding judge problems required for this topic. Review the architectural notes and syntax reference before proceeding to practical query lectures.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ) : pillarKey === "dsa" ? (
                     /* DSA Evaluation: Curated LeetCode Problems */
                     <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-6 sm:p-8 space-y-6">
                       <div>
@@ -1480,7 +1691,7 @@ export const TopicDetailPage = () => {
                               </div>
 
                               <a
-                                href={prob.url || "https://leetcode.com"}
+                                href={prob.url || prob.link || prob.external_url || "https://leetcode.com"}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface border border-border-subtle hover:bg-background text-xs font-bold text-primary-text transition-all shrink-0 hover:border-brand-300"

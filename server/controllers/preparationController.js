@@ -191,12 +191,56 @@ const getUserPath = async (req, res) => {
   }
 };
 
+// GET /api/tracks — Fetch all top-level tracks with nested sub-tracks
+const getAllTracks = async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        t.id,
+        COALESCE(t.name, t.title) AS name,
+        COALESCE(t.title, t.name) AS title,
+        t.slug,
+        t.description,
+        t.track_order,
+        t.evaluation_type,
+        COALESCE(
+          (SELECT json_agg(
+            json_build_object(
+              'id', sub.id,
+              'name', COALESCE(sub.name, sub.title),
+              'title', COALESCE(sub.title, sub.name),
+              'slug', sub.slug,
+              'description', sub.description,
+              'track_order', sub.track_order,
+              'evaluation_type', sub.evaluation_type,
+              'topics_count', (
+                SELECT COUNT(*) FROM track_topics tt WHERE tt.track_id = sub.id
+              )
+            ) ORDER BY sub.track_order ASC
+          ) FROM tracks sub WHERE sub.parent_track_id = t.id),
+          '[]'
+        ) AS sub_tracks
+      FROM tracks t
+      WHERE t.parent_track_id IS NULL AND (t.is_published = true OR t.is_published IS NULL)
+      ORDER BY t.track_order ASC;
+    `;
+    const result = await pool.query(query);
+    return res.status(200).json({
+      success: true,
+      tracks: result.rows,
+    });
+  } catch (err) {
+    console.error("Error fetching tracks:", err);
+    return res.status(500).json({ error: "Internal server error." });
+  }
+};
+
 // GET /api/user/roadmap — High-performance complete roadmap retrieval
 const getUserRoadmap = async (req, res) => {
   const userId = req.user.id;
 
   try {
-    // 1. Fetch user's active path and mapped tracks in a single JOIN
+    // 1. Fetch user's active path and mapped top-level tracks in a single JOIN
     const roadmapQuery = `
       SELECT 
         pp.id AS path_id,
@@ -206,17 +250,19 @@ const getUserRoadmap = async (req, res) => {
         upp.daily_hours,
         upp.daily_study_time_minutes,
         t.id AS track_id,
-        t.name AS track_name,
+        COALESCE(t.name, t.title) AS track_name,
+        COALESCE(t.title, t.name) AS track_title,
         t.slug AS track_slug,
         t.description AS track_description,
         t.evaluation_type,
-        pt.track_order
+        t.parent_track_id,
+        COALESCE(t.track_order, pt.track_order, 1) AS track_order
       FROM user_preparation_paths upp
       JOIN preparation_paths pp ON upp.path_id = pp.id AND pp.is_active = true
       JOIN path_tracks pt ON pp.id = pt.path_id
       JOIN tracks t ON pt.track_id = t.id
-      WHERE upp.user_id = $1
-      ORDER BY pt.track_order ASC;
+      WHERE upp.user_id = $1 AND t.parent_track_id IS NULL
+      ORDER BY COALESCE(t.track_order, pt.track_order, 1) ASC;
     `;
 
     const roadmapResult = await pool.query(roadmapQuery, [userId]);
@@ -241,22 +287,61 @@ const getUserRoadmap = async (req, res) => {
     };
 
     const tracks = [];
-    const trackIds = [];
+    const parentTrackIds = [];
 
     roadmapResult.rows.forEach((row) => {
-      trackIds.push(row.track_id);
+      parentTrackIds.push(row.track_id);
       tracks.push({
         id: row.track_id,
         name: row.track_name,
+        title: row.track_title,
         slug: row.track_slug,
         description: row.track_description,
         order: row.track_order,
         evaluationType: row.evaluation_type || "practice",
         topics: [],
+        sub_tracks: [],
+        subTracks: [],
       });
     });
 
-    // 2. Batch fetch ALL topics with user completion status for ALL tracks
+    // 2. Fetch nested sub-tracks for these parent tracks
+    const subTracksResult = await pool.query(
+      `SELECT 
+        sub.id,
+        COALESCE(sub.name, sub.title) AS name,
+        COALESCE(sub.title, sub.name) AS title,
+        sub.slug,
+        sub.description,
+        sub.parent_track_id,
+        sub.track_order,
+        sub.evaluation_type,
+        sub.icon,
+        sub.level
+      FROM tracks sub
+      WHERE sub.parent_track_id = ANY($1::int[]) AND (sub.is_published = true OR sub.is_published IS NULL)
+      ORDER BY sub.parent_track_id ASC, sub.track_order ASC;`,
+      [parentTrackIds]
+    );
+
+    const subTracks = subTracksResult.rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      title: row.title,
+      slug: row.slug,
+      description: row.description,
+      parentTrackId: row.parent_track_id,
+      order: row.track_order,
+      evaluationType: row.evaluation_type || "practice",
+      icon: row.icon,
+      level: row.level,
+      topics: [],
+    }));
+
+    const subTrackMap = new Map(subTracks.map((st) => [st.id, st]));
+    const allQueryTrackIds = [...parentTrackIds, ...subTracks.map((st) => st.id)];
+
+    // 3. Batch fetch ALL topics with user completion status for ALL tracks & sub-tracks
     const topicsQuery = `
       SELECT 
         top.id,
@@ -283,29 +368,57 @@ const getUserRoadmap = async (req, res) => {
       ORDER BY tt.track_id ASC, tt.topic_order ASC;
     `;
 
-    const topicsResult = await pool.query(topicsQuery, [userId, trackIds]);
-
+    const topicsResult = await pool.query(topicsQuery, [userId, allQueryTrackIds]);
     const trackMap = new Map(tracks.map((t) => [t.id, t]));
 
     topicsResult.rows.forEach((topic) => {
-      const track = trackMap.get(topic.track_id);
-      if (track) {
-        track.topics.push({
-          id: topic.id,
-          name: topic.name,
-          slug: topic.slug,
-          description: topic.description,
-          subtrack: topic.subtrack,
-          order: topic.topic_order,
-          status: topic.status,
-          estimatedMinutes: topic.estimated_minutes,
-          hasQuiz: Boolean(topic.has_quiz),
-          quizPassed: Boolean(topic.quiz_passed),
-        });
+      const topicObj = {
+        id: topic.id,
+        name: topic.name,
+        slug: topic.slug,
+        description: topic.description,
+        subtrack: topic.subtrack,
+        order: topic.topic_order,
+        status: topic.status,
+        estimatedMinutes: topic.estimated_minutes,
+        hasQuiz: Boolean(topic.has_quiz),
+        quizPassed: Boolean(topic.quiz_passed),
+      };
+
+      const subTrack = subTrackMap.get(topic.track_id);
+      if (subTrack) {
+        subTrack.topics.push(topicObj);
+        // Also aggregate into parent track topics for overall path counting
+        const parentTrack = trackMap.get(subTrack.parentTrackId);
+        if (parentTrack && !parentTrack.topics.some((tp) => tp.id === topic.id)) {
+          parentTrack.topics.push(topicObj);
+        }
+      } else {
+        const track = trackMap.get(topic.track_id);
+        if (track) {
+          track.topics.push(topicObj);
+        }
       }
     });
 
-    // 3. Calculate dynamic track metrics and overall path progress
+    // Calculate metrics for sub-tracks
+    subTracks.forEach((st) => {
+      const total = st.topics.length;
+      const completed = st.topics.filter((tp) => tp.status === "completed").length;
+      st.totalTopics = total;
+      st.topics_count = total;
+      st.completedTopics = completed;
+      st.progressPercentage = total > 0 ? Math.round((completed / total) * 1000) / 10 : 0;
+    });
+
+    // Attach sub_tracks to their respective parent tracks
+    tracks.forEach((track) => {
+      const children = subTracks.filter((st) => st.parentTrackId === track.id);
+      track.sub_tracks = children;
+      track.subTracks = children;
+    });
+
+    // 4. Calculate dynamic track metrics and overall path progress
     let totalPathTopics = 0;
     let completedPathTopics = 0;
 
@@ -362,6 +475,7 @@ const getUserReadiness = async (req, res) => {
 module.exports = {
   getAllPaths,
   getPathById,
+  getAllTracks,
   getTrackTopics,
   selectUserPath,
   getUserPath,

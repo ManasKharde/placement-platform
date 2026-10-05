@@ -28,9 +28,9 @@ import {
 } from "lucide-react";
 
 // Track theme mapping helper for dynamic modular rendering
-const getTrackTheme = (track, index) => {
+const getTrackTheme = (track, index = 0) => {
   const slug = (track.slug || "").toLowerCase();
-  const name = (track.name || "").toLowerCase();
+  const name = (track.name || track.title || "").toLowerCase();
 
   // Problem Solving: DSA & SQL
   if (
@@ -47,6 +47,45 @@ const getTrackTheme = (track, index) => {
       textLight: "text-purple-700",
       accentBar: "bg-purple-600",
       badgeText: "Problem Solving & Queries",
+    };
+  }
+
+  // Databases (Top-Level)
+  if (slug === "databases" || name === "databases") {
+    return {
+      icon: Database,
+      color: "from-blue-600 via-indigo-600 to-cyan-700",
+      bgLight: "bg-blue-50",
+      borderLight: "border-blue-200",
+      textLight: "text-blue-700",
+      accentBar: "bg-blue-600",
+      badgeText: "Relational & NoSQL",
+    };
+  }
+
+  // PostgreSQL Sub-Track
+  if (slug.includes("postgres") || name.includes("postgres") || slug.includes("postgresql")) {
+    return {
+      icon: Database,
+      color: "from-sky-600 via-blue-600 to-indigo-700",
+      bgLight: "bg-sky-50",
+      borderLight: "border-sky-200",
+      textLight: "text-sky-700",
+      accentBar: "bg-sky-600",
+      badgeText: "Enterprise SQL & ACID",
+    };
+  }
+
+  // MongoDB Sub-Track
+  if (slug.includes("mongo") || name.includes("mongo")) {
+    return {
+      icon: Database,
+      color: "from-emerald-600 via-teal-600 to-green-700",
+      bgLight: "bg-emerald-50",
+      borderLight: "border-emerald-200",
+      textLight: "text-emerald-700",
+      accentBar: "bg-emerald-600",
+      badgeText: "Document NoSQL Architecture",
     };
   }
 
@@ -126,6 +165,34 @@ const getTrackTheme = (track, index) => {
   return palettes[index % palettes.length];
 };
 
+// Clean tab label helper for top navigation dock
+const getTrackTabLabel = (track) => {
+  const slug = (track.slug || "").toLowerCase();
+  const name = (track.name || track.title || "").toLowerCase();
+  if (slug.includes("dsa") || slug.includes("problem-solving") || name.includes("dsa") || name.includes("problem solving")) {
+    return "DSA";
+  }
+  if (slug === "databases" || name === "databases") {
+    return "Databases";
+  }
+  if (
+    slug.includes("node") ||
+    slug.includes("dev") ||
+    slug.includes("express") ||
+    name.includes("development") ||
+    name.includes("backend")
+  ) {
+    return "Development";
+  }
+  if (slug.includes("aptitude") || name.includes("aptitude") || name.includes("reasoning")) {
+    return "Quantitative Aptitude & Logical Reasoning";
+  }
+  if (slug.includes("system-design") || name.includes("system design") || slug.includes("deployment")) {
+    return "System Design & Deployment";
+  }
+  return track.title || track.name;
+};
+
 export const RoadmapPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -138,6 +205,7 @@ export const RoadmapPage = () => {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [activeTrackId, setActiveTrackId] = useState(null);
   const [collapsedTracks, setCollapsedTracks] = useState({});
+  const [collapsedSubTracks, setCollapsedSubTracks] = useState({});
   const [toast, setToast] = useState(null);
 
   const toastTimeoutRef = useRef(null);
@@ -217,8 +285,11 @@ export const RoadmapPage = () => {
     }
   }, [loading, roadmapData, location.state]);
 
-  // Dynamic tracks extraction
-  const tracks = roadmapData?.tracks || roadmapData?.roadmap?.tracks || [];
+  // Dynamic tracks extraction - Filter so ONLY top-level tracks appear
+  const rawTracks = roadmapData?.tracks || roadmapData?.roadmap?.tracks || [];
+  const tracks = rawTracks
+    .filter((t) => !t.parent_track_id && !t.parentTrackId)
+    .sort((a, b) => (a.order || a.track_order || 1) - (b.order || b.track_order || 1));
   const activePath = roadmapData?.path || roadmapData?.roadmap?.path;
   const overallTotal =
     roadmapData?.totalTopics ??
@@ -367,12 +438,26 @@ export const RoadmapPage = () => {
 
     setTogglingTopicId(topic.id);
 
-    // Optimistically update topic status across ALL tracks in state
+    // Optimistically update topic status across ALL tracks & sub_tracks in state
     setRoadmapData((prev) => {
       if (!prev) return prev;
       const updateTracks = (trackList) =>
         trackList.map((t) => {
-          const updatedTopics = t.topics.map((top) =>
+          const updatedSubTracks = (t.sub_tracks || t.subTracks || []).map((sub) => {
+            const updatedSubTopics = (sub.topics || []).map((top) =>
+              top.id === topic.id ? { ...top, status: nextStatus } : top
+            );
+            const compCount = updatedSubTopics.filter((tp) => tp.status === "completed").length;
+            const totCount = updatedSubTopics.length;
+            return {
+              ...sub,
+              topics: updatedSubTopics,
+              completedTopics: compCount,
+              progressPercentage: totCount > 0 ? Math.round((compCount / totCount) * 1000) / 10 : 0,
+            };
+          });
+
+          const updatedTopics = (t.topics || []).map((top) =>
             top.id === topic.id ? { ...top, status: nextStatus } : top
           );
           const completedCount = updatedTopics.filter((tp) => tp.status === "completed").length;
@@ -380,6 +465,8 @@ export const RoadmapPage = () => {
           return {
             ...t,
             topics: updatedTopics,
+            sub_tracks: updatedSubTracks,
+            subTracks: updatedSubTracks,
             completedTopics: completedCount,
             progressPercentage:
               totalCount > 0 ? Math.round((completedCount / totalCount) * 1000) / 10 : 0,
@@ -419,7 +506,21 @@ export const RoadmapPage = () => {
         if (!prev) return prev;
         const revertTracks = (trackList) =>
           trackList.map((t) => {
-            const revertedTopics = t.topics.map((top) =>
+            const revertedSubTracks = (t.sub_tracks || t.subTracks || []).map((sub) => {
+              const revertedSubTopics = (sub.topics || []).map((top) =>
+                top.id === topic.id ? { ...top, status: topic.status } : top
+              );
+              const compCount = revertedSubTopics.filter((tp) => tp.status === "completed").length;
+              const totCount = revertedSubTopics.length;
+              return {
+                ...sub,
+                topics: revertedSubTopics,
+                completedTopics: compCount,
+                progressPercentage: totCount > 0 ? Math.round((compCount / totCount) * 1000) / 10 : 0,
+              };
+            });
+
+            const revertedTopics = (t.topics || []).map((top) =>
               top.id === topic.id ? { ...top, status: topic.status } : top
             );
             const completedCount = revertedTopics.filter((tp) => tp.status === "completed").length;
@@ -427,6 +528,8 @@ export const RoadmapPage = () => {
             return {
               ...t,
               topics: revertedTopics,
+              sub_tracks: revertedSubTracks,
+              subTracks: revertedSubTracks,
               completedTopics: completedCount,
               progressPercentage:
                 totalCount > 0 ? Math.round((completedCount / totalCount) * 1000) / 10 : 0,
@@ -450,6 +553,124 @@ export const RoadmapPage = () => {
     }
   };
 
+  const toggleSubTrackCollapse = (subTrackId) => {
+    setCollapsedSubTracks((prev) => ({
+      ...prev,
+      [subTrackId]: !prev[subTrackId],
+    }));
+  };
+
+  const renderTopicItem = (topic, tIdx, currentTrack) => {
+    const isCompleted = topic.status === "completed";
+    const isUpdating = togglingTopicId === topic.id;
+    const isQuizLocked = topic.hasQuiz && !topic.quizPassed && !isCompleted;
+    const isHighlighted = highlightedTopicId === topic.id;
+    const prevSubtrack = tIdx > 0 ? currentTrack.topics?.[tIdx - 1]?.subtrack : null;
+    const isNewSubtrack = Boolean(topic.subtrack && topic.subtrack !== prevSubtrack);
+
+    return (
+      <React.Fragment key={topic.id}>
+        {isNewSubtrack && (
+          <div className={`flex items-center gap-2.5 ${tIdx > 0 ? "pt-5 pb-1.5" : "pt-2 pb-1.5"}`}>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-background border border-border-subtle text-primary-text shadow-xs">
+              <Layers className="h-3 w-3 text-brand-600" />
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-primary-text">
+                {topic.subtrack}
+              </span>
+            </div>
+            <div className="h-px bg-border-subtle/80 flex-1" />
+          </div>
+        )}
+        <div
+          id={`topic-${topic.id}`}
+          onClick={() => {
+            if (typeof topic.id === "number") {
+              navigate(`/topics/${topic.id}`);
+            }
+          }}
+          className={`p-3.5 rounded-xl border transition-all duration-300 flex items-start justify-between gap-3.5 cursor-pointer select-none group ${
+            isHighlighted
+              ? "ring-2 ring-indigo-500/80 shadow-lg shadow-indigo-500/20 bg-indigo-50/20 border-indigo-300 scale-[1.005]"
+              : isCompleted
+                ? "bg-emerald-50/40 border-emerald-200/70 hover:border-emerald-300"
+                : "bg-surface border-border-subtle hover:border-brand-300 hover:shadow-subtle"
+          }`}
+        >
+          <div className="flex items-start gap-3.5 min-w-0 flex-1">
+            <button
+              type="button"
+              disabled={isUpdating}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleToggleTopic(topic);
+              }}
+              className="shrink-0 mt-0.5 transition-transform active:scale-90 p-0.5 rounded hover:bg-black/5"
+              title={
+                isQuizLocked
+                  ? "Assessment required: Open topic and pass the test to complete"
+                  : isCompleted
+                    ? "Mark as Incomplete"
+                    : "Mark as Completed"
+              }
+            >
+              {isUpdating ? (
+                <Loader2 className="h-4 w-4 animate-spin text-brand-600" />
+              ) : isCompleted ? (
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 fill-emerald-100" />
+              ) : isQuizLocked ? (
+                <Lock className="h-4 w-4 text-amber-500/80 group-hover:text-amber-600" />
+              ) : (
+                <Circle className="h-4 w-4 text-secondary-text/70 group-hover:text-primary-text" />
+              )}
+            </button>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <h4
+                    className={`text-xs font-bold leading-snug truncate group-hover:text-brand-600 transition-colors ${
+                      isCompleted
+                        ? "text-emerald-950 line-through opacity-80"
+                        : "text-primary-text"
+                    }`}
+                  >
+                    {topic.name}
+                  </h4>
+                  {topic.hasQuiz && (
+                    <span
+                      className={`text-[9px] font-bold px-1.5 py-0.2 rounded border shrink-0 ${
+                        topic.quizPassed
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : "bg-amber-50 text-amber-700 border-amber-200"
+                      }`}
+                    >
+                      {topic.quizPassed ? "Quiz Passed" : "Quiz Required"}
+                    </span>
+                  )}
+                </div>
+
+                {topic.estimatedMinutes > 0 && (
+                  <span className="text-[10px] font-medium text-secondary-text shrink-0 flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    ~{topic.estimatedMinutes}m
+                  </span>
+                )}
+              </div>
+
+              {topic.description && (
+                <p className="text-[11px] text-secondary-text mt-0.5 line-clamp-2">
+                  {topic.description}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <ChevronRight className="h-4 w-4 text-secondary-text/40 group-hover:text-brand-600 group-hover:translate-x-0.5 transition-all shrink-0 mt-1" />
+        </div>
+      </React.Fragment>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* ── Sticky Track Navigation Dock ── */}
@@ -471,7 +692,7 @@ export const RoadmapPage = () => {
                       : "bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                     }`}
                 >
-                  {track.name}
+                  {getTrackTabLabel(track)}
                 </button>
               ))}
             </div>
@@ -698,118 +919,120 @@ export const RoadmapPage = () => {
                     </div>
 
                     {/* Track Topics Body */}
+                    {/* Track Topics Body or Sub-tracks */}
                     {!isCollapsed && (
-                      <div className="px-5 sm:px-6 pb-6 pt-2 border-t border-border-subtle/70 space-y-3 animate-fade-in">
-                        {track.topics && track.topics.length > 0 ? (
-                          <div className="space-y-2 pt-1">
-                            {track.topics.map((topic, tIdx) => {
-                              const isCompleted = topic.status === "completed";
-                              const isUpdating = togglingTopicId === topic.id;
-                              const isQuizLocked =
-                                topic.hasQuiz && !topic.quizPassed && !isCompleted;
-                              const isHighlighted = highlightedTopicId === topic.id;
-                              const prevSubtrack = tIdx > 0 ? track.topics[tIdx - 1]?.subtrack : null;
-                              const isNewSubtrack = Boolean(topic.subtrack && topic.subtrack !== prevSubtrack);
+                      <div className="px-5 sm:px-6 pb-6 pt-2 border-t border-border-subtle/70 space-y-4 animate-fade-in">
+                        {(track.sub_tracks || track.subTracks)?.length > 0 ? (
+                          /* Nested Sub-tracks View (e.g. Databases -> PostgreSQL & MongoDB) */
+                          <div className="space-y-4 pt-2">
+                            {(track.sub_tracks || track.subTracks).map((subTrack, sIdx) => {
+                              const subTheme = getTrackTheme(subTrack, sIdx);
+                              const SubIcon = subTheme.icon;
+                              const isSubCollapsed = Boolean(collapsedSubTracks[subTrack.id]);
+                              const subTotal = subTrack.totalTopics ?? subTrack.topics?.length ?? 0;
+                              const subCompleted =
+                                subTrack.completedTopics ??
+                                subTrack.topics?.filter((tp) => tp.status === "completed").length ??
+                                0;
+                              const subProgress =
+                                subTrack.progressPercentage ??
+                                (subTotal > 0 ? Math.round((subCompleted / subTotal) * 1000) / 10 : 0);
 
                               return (
-                                <React.Fragment key={topic.id}>
-                                  {isNewSubtrack && (
-                                    <div className={`flex items-center gap-2.5 ${tIdx > 0 ? "pt-5 pb-1.5" : "pt-2 pb-1.5"}`}>
-                                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-background border border-border-subtle text-primary-text shadow-xs">
-                                        <Layers className="h-3 w-3 text-brand-600" />
-                                        <span className="text-[11px] font-extrabold uppercase tracking-wider text-primary-text">
-                                          {topic.subtrack}
-                                        </span>
-                                      </div>
-                                      <div className="h-px bg-border-subtle/80 flex-1" />
-                                    </div>
-                                  )}
+                                <div
+                                  key={subTrack.id}
+                                  id={`subtrack-${subTrack.id}`}
+                                  className="bg-background/80 rounded-2xl border border-border-subtle/90 overflow-hidden shadow-xs hover:border-brand-200 transition-all"
+                                >
+                                  {/* Sub-track Header */}
                                   <div
-                                    id={`topic-${topic.id}`}
-                                    onClick={() => {
-                                      if (typeof topic.id === "number") {
-                                        navigate(`/topics/${topic.id}`);
-                                      }
-                                    }}
-                                    className={`p-3.5 rounded-xl border transition-all duration-300 flex items-start justify-between gap-3.5 cursor-pointer select-none group ${isHighlighted
-                                        ? "ring-2 ring-indigo-500/80 shadow-lg shadow-indigo-500/20 bg-indigo-50/20 border-indigo-300 scale-[1.005]"
-                                        : isCompleted
-                                          ? "bg-emerald-50/40 border-emerald-200/70 hover:border-emerald-300"
-                                          : "bg-surface border-border-subtle hover:border-brand-300 hover:shadow-subtle"
-                                      }`}
+                                    onClick={() => toggleSubTrackCollapse(subTrack.id)}
+                                    className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors select-none"
                                   >
-                                    <div className="flex items-start gap-3.5 min-w-0 flex-1">
-                                      <button
-                                        type="button"
-                                        disabled={isUpdating}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleToggleTopic(topic);
-                                        }}
-                                        className="shrink-0 mt-0.5 transition-transform active:scale-90 p-0.5 rounded hover:bg-black/5"
-                                        title={
-                                          isQuizLocked
-                                            ? "Assessment required: Open topic and pass the test to complete"
-                                            : isCompleted
-                                              ? "Mark as Incomplete"
-                                              : "Mark as Completed"
-                                        }
+                                    <div className="flex items-center gap-3.5 min-w-0">
+                                      <div
+                                        className={`h-10 w-10 rounded-xl bg-gradient-to-br ${subTheme.color} text-white flex items-center justify-center shadow-subtle shrink-0`}
                                       >
-                                        {isUpdating ? (
-                                          <Loader2 className="h-4 w-4 animate-spin text-brand-600" />
-                                        ) : isCompleted ? (
-                                          <CheckCircle2 className="h-4 w-4 text-emerald-600 fill-emerald-100" />
-                                        ) : isQuizLocked ? (
-                                          <Lock className="h-4 w-4 text-amber-500/80 group-hover:text-amber-600" />
-                                        ) : (
-                                          <Circle className="h-4 w-4 text-secondary-text/70 group-hover:text-primary-text" />
-                                        )}
-                                      </button>
+                                        <SubIcon className="h-5 w-5" />
+                                      </div>
 
-                                      <div className="min-w-0 flex-1">
-                                        <div className="flex items-center justify-between gap-2">
-                                          <div className="flex items-center gap-2 min-w-0">
-                                            <h4
-                                              className={`text-xs font-bold leading-snug truncate group-hover:text-brand-600 transition-colors ${isCompleted
-                                                  ? "text-emerald-950 line-through opacity-80"
-                                                  : "text-primary-text"
-                                                }`}
-                                            >
-                                              {topic.name}
-                                            </h4>
-                                            {topic.hasQuiz && (
-                                              <span
-                                                className={`text-[9px] font-bold px-1.5 py-0.2 rounded border shrink-0 ${topic.quizPassed
-                                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                                    : "bg-amber-50 text-amber-700 border-amber-200"
-                                                  }`}
-                                              >
-                                                {topic.quizPassed ? "Quiz Passed" : "Quiz Required"}
-                                              </span>
-                                            )}
-                                          </div>
-
-                                          {topic.estimatedMinutes > 0 && (
-                                            <span className="text-[10px] font-medium text-secondary-text shrink-0 flex items-center gap-1">
-                                              <Clock className="h-3 w-3" />
-                                              ~{topic.estimatedMinutes}m
-                                            </span>
-                                          )}
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <h3 className="text-sm sm:text-base font-bold text-primary-text tracking-tight truncate">
+                                            {subTrack.title || subTrack.name}
+                                          </h3>
+                                          <span
+                                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${subTheme.bgLight} ${subTheme.textLight} border ${subTheme.borderLight}`}
+                                          >
+                                            {subTheme.badgeText}
+                                          </span>
                                         </div>
-
-                                        {topic.description && (
-                                          <p className="text-[11px] text-secondary-text mt-0.5 line-clamp-2">
-                                            {topic.description}
+                                        {subTrack.description && (
+                                          <p className="text-[11px] text-secondary-text line-clamp-1 mt-0.5">
+                                            {subTrack.description}
                                           </p>
                                         )}
                                       </div>
                                     </div>
 
-                                    <ChevronRight className="h-4 w-4 text-secondary-text/40 group-hover:text-brand-600 group-hover:translate-x-0.5 transition-all shrink-0 mt-1" />
+                                    {/* Progress & Collapse Chevron */}
+                                    <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0">
+                                      <div className="flex flex-col sm:items-end">
+                                        <div className="flex items-center gap-1.5 text-[11px]">
+                                          <span className="font-bold text-primary-text">
+                                            {subCompleted} / {subTotal} Topics
+                                          </span>
+                                          <span className="font-semibold text-secondary-text">
+                                            ({subProgress}%)
+                                          </span>
+                                        </div>
+                                        <div className="w-24 sm:w-28 bg-border-subtle h-1.5 rounded-full overflow-hidden mt-1">
+                                          <div
+                                            className={`h-full rounded-full transition-all duration-500 bg-gradient-to-r ${subTheme.color}`}
+                                            style={{ width: `${subProgress}%` }}
+                                          />
+                                        </div>
+                                      </div>
+
+                                      <button
+                                        type="button"
+                                        className="p-1 rounded-lg text-secondary-text hover:text-primary-text transition-colors"
+                                        aria-label="Toggle sub-track section"
+                                      >
+                                        {isSubCollapsed ? (
+                                          <ChevronDown className="h-4 w-4" />
+                                        ) : (
+                                          <ChevronUp className="h-4 w-4" />
+                                        )}
+                                      </button>
+                                    </div>
                                   </div>
-                                </React.Fragment>
+
+                                  {/* Sub-track Topics List */}
+                                  {!isSubCollapsed && (
+                                    <div className="px-4 sm:px-5 pb-5 pt-1 border-t border-border-subtle/60 space-y-2 animate-fade-in">
+                                      {subTrack.topics && subTrack.topics.length > 0 ? (
+                                        <div className="space-y-2 pt-2">
+                                          {subTrack.topics.map((topic, tIdx) =>
+                                            renderTopicItem(topic, tIdx, subTrack)
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <div className="text-center py-4 text-xs text-secondary-text">
+                                          No topics found in this sub-track.
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
                               );
                             })}
+                          </div>
+                        ) : track.topics && track.topics.length > 0 ? (
+                          <div className="space-y-2 pt-1">
+                            {track.topics.map((topic, tIdx) =>
+                              renderTopicItem(topic, tIdx, track)
+                            )}
                           </div>
                         ) : (
                           <div className="text-center py-6 text-xs text-secondary-text">

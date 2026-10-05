@@ -84,6 +84,24 @@ function determinePillar(trackSlug, trackName, topicSlug, topicName) {
     };
   }
 
+  // Databases (PostgreSQL / MongoDB / Relational & Document DBs)
+  if (
+    tTrack.includes("database") ||
+    tTrack.includes("postgres") ||
+    tTrack.includes("mongodb") ||
+    tTrack.includes("sql-mastery") ||
+    tTopic.includes("pg-lecture") ||
+    tTopic.includes("mongo-") ||
+    tTopic.includes("postgres") ||
+    tTopic.includes("mongodb")
+  ) {
+    return {
+      key: "databases",
+      name: "Databases",
+      badge: "Relational & Document Databases",
+    };
+  }
+
   // 3. Aptitude & SQL
   if (
     tTrack.includes("quantitative") ||
@@ -91,7 +109,6 @@ function determinePillar(trackSlug, trackName, topicSlug, topicName) {
     tTopic.includes("quantitative") ||
     tTopic.includes("speed-distance") ||
     tTopic.includes("relational-sql") ||
-    tTrack.includes("database-engineering") ||
     tTopic.includes("schema-design")
   ) {
     return {
@@ -124,12 +141,16 @@ const getTopicDetail = async (req, res) => {
         t.name,
         t.slug,
         t.description,
+        t.short_description,
+        t.official_docs_url,
         t.subtrack,
         t.summary_markdown,
         t.theory_summary,
         t.doc_links,
         t.video_links,
         t.practice_items,
+        t.creator_name,
+        t.creator_channel_url,
         tr.id AS track_id,
         tr.name AS track_name,
         tr.slug AS track_slug,
@@ -148,8 +169,8 @@ const getTopicDetail = async (req, res) => {
       LEFT JOIN user_progress up ON t.id = up.topic_id AND up.user_id = $2
       WHERE t.id = $1
       GROUP BY 
-        t.id, t.name, t.slug, t.description, t.subtrack, t.summary_markdown, t.theory_summary, t.doc_links, 
-        t.video_links, t.practice_items, tr.id, tr.name, tr.slug, pp.id, pp.name, pp.slug, 
+        t.id, t.name, t.slug, t.description, t.short_description, t.official_docs_url, t.subtrack, t.summary_markdown, t.theory_summary, t.doc_links, 
+        t.video_links, t.practice_items, t.creator_name, t.creator_channel_url, tr.id, tr.name, tr.slug, pp.id, pp.name, pp.slug, 
         up.status, up.completed_at
       LIMIT 1;
     `;
@@ -163,6 +184,13 @@ const getTopicDetail = async (req, res) => {
     const row = result.rows[0];
     const pillar = determinePillar(row.track_slug, row.track_name, row.slug, row.name);
 
+    const isDbTrack =
+      pillar.key === "databases" ||
+      row.track_slug === "postgresql-mastery" ||
+      row.track_slug === "mongodb-mastery" ||
+      row.track_slug === "databases" ||
+      (row.slug && (row.slug.startsWith("pg-") || row.slug.startsWith("mongo-")));
+
     // Also fetch associated resources from resources table to supplement if needed
     const resourcesRes = await pool.query(
       `SELECT id, title, url, resource_type, estimated_minutes 
@@ -173,8 +201,28 @@ const getTopicDetail = async (req, res) => {
     let docLinks = Array.isArray(row.doc_links) ? row.doc_links : [];
     let videoLinks = Array.isArray(row.video_links) ? row.video_links : [];
 
-    // Fallback: If docLinks is empty, pull documentation/article resources
-    if (docLinks.length === 0) {
+    // Official Docs logic
+    if (isDbTrack) {
+      if (row.official_docs_url) {
+        docLinks = [
+          {
+            title: "PostgreSQL Official Documentation",
+            url: row.official_docs_url,
+          },
+        ];
+      } else if (docLinks.length === 0) {
+        // Only use documentation/article resources if they are authentic to this topic
+        const dbArticles = resourcesRes.rows
+          .filter(
+            (r) =>
+              (r.resource_type === "documentation" || r.resource_type === "article") &&
+              !r.url?.includes("remzi/OSTEP") &&
+              !r.url?.includes("geeksforgeeks.org/operating-systems")
+          )
+          .map((r) => ({ title: r.title, url: r.url }));
+        docLinks = dbArticles;
+      }
+    } else if (docLinks.length === 0) {
       docLinks = resourcesRes.rows
         .filter((r) => r.resource_type === "documentation" || r.resource_type === "article")
         .map((r) => ({ title: r.title, url: r.url }));
@@ -213,7 +261,48 @@ const getTopicDetail = async (req, res) => {
       (r) => r.resource_type === "practice" || r.resource_type === "problem"
     );
 
-    if ((practiceItems.length === 0 || hasOnlyPlaceholderAssignment) && practiceResources.length > 0) {
+    if (isDbTrack) {
+      if (Array.isArray(row.practice_items) && row.practice_items.length > 0) {
+        practiceItems = row.practice_items.map((p, idx) => ({
+          ...p,
+          id: p.id || `pg-${row.topic_order || 1}-prob-${idx + 1}`,
+          problemId: p.problemId || p.id || `${idx + 1}`,
+          title: p.title || p.name || "Practice Problem",
+          url: p.url || p.link || p.external_url,
+          link: p.url || p.link || p.external_url,
+          external_url: p.url || p.link || p.external_url,
+          difficulty: p.difficulty || "Easy",
+          platform: p.platform || "LeetCode",
+          description: p.description || `Solve "${p.title || p.name}" on LeetCode using PostgreSQL.`,
+        }));
+      } else if (practiceResources.length > 0) {
+        practiceItems = practiceResources.map((r, idx) => {
+          let title = r.title || "Practice Problem";
+          let difficulty = r.difficulty || "Medium";
+
+          if (title.includes("(Easy)")) difficulty = "Easy";
+          else if (title.includes("(Hard)")) difficulty = "Hard";
+          else if (title.includes("(Medium)")) difficulty = "Medium";
+
+          title = title
+            .replace(/^\[(LeetCode|GeeksforGeeks|GFG|Practice)\]\s*/i, "")
+            .replace(/\s*\((Easy|Medium|Hard)\)$/i, "")
+            .trim();
+
+          return {
+            id: `pg-${row.topic_order || 1}-prob-${idx + 1}`,
+            problemId: `${idx + 1}`,
+            title,
+            platform: "LeetCode",
+            difficulty,
+            url: r.url,
+            link: r.url,
+            external_url: r.url,
+            description: `Solve "${title}" on LeetCode using PostgreSQL.`,
+          };
+        });
+      }
+    } else if ((practiceItems.length === 0 || hasOnlyPlaceholderAssignment) && practiceResources.length > 0) {
       practiceItems = practiceResources.map((r, idx) => {
         const isGfg = r.url?.includes("geeksforgeeks.org");
         const platform = isGfg ? "GeeksforGeeks" : "LeetCode";
@@ -249,6 +338,10 @@ const getTopicDetail = async (req, res) => {
       video_url: videoLinks[0]?.url || null,
       subtrack: row.subtrack,
       description: row.description,
+      short_description: row.short_description || row.description,
+      official_docs_url: row.official_docs_url || null,
+      creator_name: row.creator_name || videoLinks[0]?.creator_name || null,
+      creator_channel_url: row.creator_channel_url || videoLinks[0]?.creator_channel_url || null,
       estimated_minutes: row.estimated_minutes || 45,
       status: row.status,
       completed_at: row.completed_at,
