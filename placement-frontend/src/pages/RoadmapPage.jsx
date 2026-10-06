@@ -185,7 +185,7 @@ const getTrackTabLabel = (track) => {
     return "Development";
   }
   if (slug.includes("aptitude") || name.includes("aptitude") || name.includes("reasoning")) {
-    return "Quantitative Aptitude & Logical Reasoning";
+    return "Aptitude";
   }
   if (slug.includes("system-design") || name.includes("system design") || slug.includes("deployment")) {
     return "System Design & Deployment";

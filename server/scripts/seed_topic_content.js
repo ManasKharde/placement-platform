@@ -472,12 +472,19 @@ Part of the **${trackName || "Software Engineering"}** curriculum designed for m
     };
   };
 
-  // 4. Fetch all topics from DB and update their content
+  // 4. Fetch all topics from DB and update their content (exclude database & JavaScript tracks)
   const topicsRes = await pool.query(`
     SELECT t.id, t.name, t.slug, t.video_links, t.practice_items, tr.name AS track_name
     FROM topics t
     LEFT JOIN track_topics tt ON t.id = tt.topic_id
     LEFT JOIN tracks tr ON tt.track_id = tr.id
+    WHERE t.slug NOT LIKE 'pg-lecture-%' 
+      AND t.slug NOT LIKE 'mongo-%' 
+      AND t.slug NOT LIKE 'js-lecture-%'
+      AND t.slug NOT LIKE 'node-lecture-%'
+      AND t.slug NOT LIKE 'cs-%'
+      AND (tt.track_id IS NULL OR tt.track_id NOT IN (22, 24, 654, 655, 708))
+      AND (tr.slug IS NULL OR tr.slug NOT IN ('core-computer-science-fundamentals', 'core-computer-science', 'nodejs-express-architecture', 'postgresql-mastery', 'mongodb-mastery', 'javascript-mastery'))
   `);
 
   console.log(`Found ${topicsRes.rows.length} topics in database to enrich.`);

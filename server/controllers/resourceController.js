@@ -204,9 +204,13 @@ const getTopicDetail = async (req, res) => {
     // Official Docs logic
     if (isDbTrack) {
       if (row.official_docs_url) {
+        const docBrand =
+          row.slug?.startsWith("mongo-") || row.track_slug === "mongodb-mastery"
+            ? "MongoDB Official Manual"
+            : "PostgreSQL Official Documentation";
         docLinks = [
           {
-            title: "PostgreSQL Official Documentation",
+            title: docBrand,
             url: row.official_docs_url,
           },
         ];
@@ -262,19 +266,38 @@ const getTopicDetail = async (req, res) => {
     );
 
     if (isDbTrack) {
-      if (Array.isArray(row.practice_items) && row.practice_items.length > 0) {
-        practiceItems = row.practice_items.map((p, idx) => ({
-          ...p,
-          id: p.id || `pg-${row.topic_order || 1}-prob-${idx + 1}`,
-          problemId: p.problemId || p.id || `${idx + 1}`,
-          title: p.title || p.name || "Practice Problem",
-          url: p.url || p.link || p.external_url,
-          link: p.url || p.link || p.external_url,
-          external_url: p.url || p.link || p.external_url,
-          difficulty: p.difficulty || "Easy",
-          platform: p.platform || "LeetCode",
-          description: p.description || `Solve "${p.title || p.name}" on LeetCode using PostgreSQL.`,
-        }));
+      if (Array.isArray(row.practice_items)) {
+        // Filter out any dummy placeholder items
+        const validDbProblems = row.practice_items.filter(
+          (p) =>
+            p &&
+            p.title !== "Top 5 Technical Screening Interview Questions" &&
+            p.type !== "cs" &&
+            p.type !== "assignment"
+        );
+
+        practiceItems = validDbProblems.map((p, idx) => {
+          const isMongo =
+            row.slug?.startsWith("mongo-") ||
+            row.track_slug === "mongodb-mastery" ||
+            p.url?.includes("mongopractice.online") ||
+            p.platform === "MongoPractice";
+          const defaultPlatform = isMongo ? "MongoPractice" : "LeetCode";
+          const defaultTarget = isMongo ? "MongoPractice using MongoDB" : "LeetCode using PostgreSQL";
+
+          return {
+            ...p,
+            id: p.id || `${row.slug || "db"}-prob-${idx + 1}`,
+            problemId: p.problemId || p.id || `${idx + 1}`,
+            title: p.title || p.name || "Practice Problem",
+            url: p.url || p.link || p.external_url,
+            link: p.url || p.link || p.external_url,
+            external_url: p.url || p.link || p.external_url,
+            difficulty: p.difficulty || "Easy",
+            platform: p.platform || defaultPlatform,
+            description: p.description || `Solve "${p.title || p.name}" on ${defaultTarget}.`,
+          };
+        });
       } else if (practiceResources.length > 0) {
         practiceItems = practiceResources.map((r, idx) => {
           let title = r.title || "Practice Problem";
@@ -285,20 +308,23 @@ const getTopicDetail = async (req, res) => {
           else if (title.includes("(Medium)")) difficulty = "Medium";
 
           title = title
-            .replace(/^\[(LeetCode|GeeksforGeeks|GFG|Practice)\]\s*/i, "")
+            .replace(/^\[(LeetCode|GeeksforGeeks|GFG|Practice|MongoPractice)\]\s*/i, "")
             .replace(/\s*\((Easy|Medium|Hard)\)$/i, "")
             .trim();
 
+          const isMongo = r.url?.includes("mongopractice.online") || row.slug?.startsWith("mongo-");
+          const platform = isMongo ? "MongoPractice" : "LeetCode";
+
           return {
-            id: `pg-${row.topic_order || 1}-prob-${idx + 1}`,
+            id: `${row.slug || "db"}-prob-${idx + 1}`,
             problemId: `${idx + 1}`,
             title,
-            platform: "LeetCode",
+            platform,
             difficulty,
             url: r.url,
             link: r.url,
             external_url: r.url,
-            description: `Solve "${title}" on LeetCode using PostgreSQL.`,
+            description: `Solve "${title}" on ${platform}.`,
           };
         });
       }

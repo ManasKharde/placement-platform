@@ -244,6 +244,91 @@ const SimpleMarkdown = ({ content }) => {
   );
 };
 
+// MCQ Question Text & Code Formatter
+const RenderMcqQuestionText = ({ text }) => {
+  if (!text) return null;
+
+  const isCodeBlock = (part) => {
+    const trimmed = part.trim();
+    if (!trimmed) return false;
+    if (trimmed.endsWith("?")) return false;
+
+    const startsWithCode =
+      /^(class|struct)\s+[A-Za-z0-9_]+/m.test(trimmed) ||
+      /^(template\s*<|namespace\s+)/m.test(trimmed) ||
+      /^(int|void|bool|double|float|auto)\s+main\s*\(/m.test(trimmed);
+
+    const containsCodeStructure =
+      (trimmed.includes("{") &&
+        trimmed.includes("}") &&
+        (trimmed.includes(";") || trimmed.includes("cout <<") || trimmed.includes("return "))) ||
+      /^[A-Za-z0-9_:]+\s+[A-Za-z0-9_]+\s*\([^)]*\)\s*\{/m.test(trimmed) ||
+      /(public|private|protected):/m.test(trimmed);
+
+    const isNumberedList = /^[0-9]+\.\s+[A-Z]/m.test(trimmed) && !trimmed.includes("{");
+    const isBulletList = /^[•\-*]\s+/m.test(trimmed) && !trimmed.includes("{");
+
+    if (isNumberedList || isBulletList) return false;
+
+    return Boolean(startsWithCode || containsCodeStructure);
+  };
+
+  const parts = text.split("\n\n");
+
+  if (parts.length <= 1 || !parts.some(isCodeBlock)) {
+    return (
+      <div className="text-slate-900 font-semibold text-base mb-4 leading-relaxed whitespace-pre-wrap break-words">
+        {text}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 mb-4">
+      {parts.map((part, pIdx) => {
+        const trimmed = part.trim();
+        if (!trimmed) return null;
+
+        if (isCodeBlock(trimmed)) {
+          return (
+            <div
+              key={pIdx}
+              className="my-3 rounded-2xl bg-[#0f172a] text-slate-100 p-4 border border-slate-800 font-mono text-xs overflow-x-auto shadow-inner"
+            >
+              <pre className="font-mono text-xs leading-relaxed whitespace-pre">
+                <code>{trimmed}</code>
+              </pre>
+            </div>
+          );
+        }
+
+        return (
+          <div
+            key={pIdx}
+            className="text-slate-900 font-semibold text-base leading-relaxed whitespace-pre-wrap break-words"
+          >
+            {trimmed}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+const getOptionLetter = (opt, idx) => {
+  if (typeof opt === "string" && /^[A-D]\)/.test(opt.trim())) {
+    return opt.trim().charAt(0);
+  }
+  return ["A", "B", "C", "D"][idx] || String.fromCharCode(65 + idx);
+};
+
+const getOptionText = (opt) => {
+  if (typeof opt === "string" && /^[A-D]\)\s*/.test(opt.trim())) {
+    return opt.trim().replace(/^[A-D]\)\s*/, "");
+  }
+  return opt;
+};
+
 export const TopicDetailPage = () => {
   const { topicId } = useParams();
   const navigate = useNavigate();
@@ -253,6 +338,15 @@ export const TopicDetailPage = () => {
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("learning"); // "learning" | "practice"
   const [togglingCompletion, setTogglingCompletion] = useState(false);
+
+  // Core CS MCQ Dual-Mode Timed Test & Browse Engine State
+  const [mcqQuizMode, setMcqQuizMode] = useState("browse"); // 'browse' (full vertical list) | 'timed' (single question aptitude view)
+  const [mcqActiveQuestionIndex, setMcqActiveQuestionIndex] = useState(0);
+  const [mcqSelectedAnswers, setMcqSelectedAnswers] = useState({}); // { [questionId]: 'A' | 'B' | 'C' | 'D' }
+  const [mcqIsTimerRunning, setMcqIsTimerRunning] = useState(false);
+  const [mcqTimeLeft, setMcqTimeLeft] = useState(3600); // 60 minutes for 50 questions
+  const [mcqIsTestSubmitted, setMcqIsTestSubmitted] = useState(false);
+  const [mcqRevealedExplanations, setMcqRevealedExplanations] = useState({});
 
   // Quiz Engine State
   const [quizData, setQuizData] = useState(null);
@@ -330,6 +424,13 @@ export const TopicDetailPage = () => {
       setQuizMode("overview");
       setQuizResult(null);
       setSelectedAnswers({});
+      setMcqQuizMode("browse");
+      setMcqActiveQuestionIndex(0);
+      setMcqSelectedAnswers({});
+      setMcqIsTimerRunning(false);
+      setMcqTimeLeft(3600);
+      setMcqIsTestSubmitted(false);
+      setMcqRevealedExplanations({});
     }
   }, [topicId]);
 
@@ -409,6 +510,25 @@ export const TopicDetailPage = () => {
       if (timer) clearInterval(timer);
     };
   }, [quizMode]);
+
+  // Live Countdown Timer for MCQ Timed Assessment Mode (Auto-Submit on Expiration)
+  useEffect(() => {
+    if (!mcqIsTimerRunning || mcqIsTestSubmitted) return;
+
+    const timer = setInterval(() => {
+      setMcqTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setMcqIsTestSubmitted(true);
+          setMcqIsTimerRunning(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [mcqIsTimerRunning, mcqIsTestSubmitted]);
 
   // Start or Retake Quiz
   const handleStartQuiz = () => {
@@ -507,6 +627,23 @@ export const TopicDetailPage = () => {
     topic?.track_slug === "mongodb-mastery" ||
     topic?.track_slug === "databases" ||
     (topic?.slug && (topic.slug.startsWith("pg-") || topic.slug.startsWith("mongo-")));
+  const isMcqEvaluationTopic = Boolean(
+    topic?.practice_items?.length > 0 &&
+    topic.practice_items.some(
+      (item) => item.type === "mcq" || Array.isArray(item.options)
+    )
+  );
+
+  const isInterviewQATopic =
+    !isMcqEvaluationTopic &&
+    (topic?.track_slug === "javascript-mastery" ||
+    topic?.slug?.startsWith("js-") ||
+    Boolean(
+      topic?.practice_items?.length > 0 &&
+      topic.practice_items.some(
+        (p) => p.platform === "Technical Interview QA" || p.answer
+      )
+    ));
   const hasQuiz = Boolean(quizData?.hasQuiz);
   const isQuizPassed = Boolean(quizData?.latest_attempt?.passed);
   const isLocked = hasQuiz && !isQuizPassed && !isCompleted;
@@ -698,6 +835,15 @@ export const TopicDetailPage = () => {
                   >
                     {quizData.latest_attempt?.passed ? "Passed ✓" : "Quiz"}
                   </span>
+                ) : isDatabaseTopic ? (
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeTab === "practice"
+                      ? "bg-white/20 text-white"
+                      : "bg-brand-100 text-brand-700"
+                      }`}
+                  >
+                    {topic.practice_items?.length || 0}
+                  </span>
                 ) : topic.practice_items?.length > 0 ? (
                   <span
                     className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeTab === "practice"
@@ -873,18 +1019,93 @@ export const TopicDetailPage = () => {
                   );
                 })()}
 
-                {/* 2. Interactive Target Practice Problems */}
-                <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-5 sm:p-6 space-y-4">
+                {/* 2. Interactive Target Practice Problems / Interview Q&As / Timed Evaluation Suite */}
+                {isMcqEvaluationTopic ? (
+                  <div className="bg-surface rounded-3xl border border-brand-200/80 dark:border-brand-900/50 shadow-card p-5 sm:p-6 space-y-4">
+                    <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
+                      <div className="flex items-center gap-2">
+                        <Zap className="h-4 w-4 text-brand-600" />
+                        <h3 className="text-xs font-bold text-primary-text uppercase tracking-wider">
+                          Timed Evaluation Suite
+                        </h3>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
+                        {topic.practice_items?.length || 50} Questions • 60 Mins
+                      </span>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <h4 className="text-xs sm:text-sm font-bold text-primary-text">
+                          50-Question Timed Evaluation Test (60 Mins)
+                        </h4>
+                        <p className="text-[11px] text-secondary-text mt-1 leading-relaxed">
+                          GATE & Placement Standard exam covering Memory Layout, Virtual Tables, Deep Copy, Diamond Problem, and SOLID Principles.
+                        </p>
+                      </div>
+
+                      {/* Section breakdown badges */}
+                      <div className="space-y-1.5 pt-1">
+                        <div className="flex items-center justify-between text-[11px] px-2.5 py-1.5 rounded-xl bg-background border border-border-subtle font-medium">
+                          <span className="text-secondary-text">Theory & Concept</span>
+                          <span className="font-bold text-primary-text">
+                            {topic.practice_items?.filter((q) => (q.category || "").toLowerCase().includes("theory")).length || 25} Questions
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] px-2.5 py-1.5 rounded-xl bg-background border border-border-subtle font-medium">
+                          <span className="text-secondary-text">Numerical & Memory Math</span>
+                          <span className="font-bold text-primary-text">
+                            {topic.practice_items?.filter((q) => (q.category || "").toLowerCase().includes("numerical") || (q.category || "").toLowerCase().includes("memory")).length || 15} Questions
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] px-2.5 py-1.5 rounded-xl bg-background border border-border-subtle font-medium">
+                          <span className="text-secondary-text">Engineering Scenarios</span>
+                          <span className="font-bold text-primary-text">
+                            {topic.practice_items?.filter((q) => (q.category || "").toLowerCase().includes("scenario") || (q.category || "").toLowerCase().includes("engineering")).length || 10} Questions
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveTab("practice");
+                            if (!mcqIsTestSubmitted) {
+                              setMcqQuizMode("timed");
+                              setMcqIsTimerRunning(true);
+                            }
+                          }}
+                          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold transition-all shadow-subtle hover:shadow-hover cursor-pointer"
+                        >
+                          <Zap className="h-3.5 w-3.5" />
+                          <span>
+                            {mcqIsTimerRunning
+                              ? "Resume Timed Test →"
+                              : mcqIsTestSubmitted
+                              ? "View Scorecard & Review →"
+                              : "Launch 50-Question Test →"}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-5 sm:p-6 space-y-4">
                   <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
                     <div className="flex items-center gap-2">
-                      <Terminal className="h-4 w-4 text-purple-600" />
+                      {isInterviewQATopic ? (
+                        <HelpCircle className="h-4 w-4 text-brand-600" />
+                      ) : (
+                        <Terminal className="h-4 w-4 text-purple-600" />
+                      )}
                       <h3 className="text-xs font-bold text-primary-text uppercase tracking-wider">
-                        Target Practice Problems
+                        {isInterviewQATopic ? "Key Interview Questions" : "Target Practice Problems"}
                       </h3>
                     </div>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
                       {topic.practice_items?.length > 0
-                        ? `${topic.practice_items.filter((prob, idx) => checkedTaskIds.has(`prob_${prob.problemId || idx}`)).length} / ${topic.practice_items.length} Done`
+                        ? `${topic.practice_items.filter((prob, idx) => checkedTaskIds.has(`prob_${prob.problemId || prob.id || idx}`)).length} / ${topic.practice_items.length} Done`
                         : "0 / 0 Done"}
                     </span>
                   </div>
@@ -892,13 +1113,19 @@ export const TopicDetailPage = () => {
                   {topic.practice_items?.length > 0 ? (
                     <div className="space-y-2.5">
                       {topic.practice_items.map((prob, pIdx) => {
-                        const taskKey = `prob_${prob.problemId || pIdx}`;
+                        const taskKey = `prob_${prob.problemId || prob.id || pIdx}`;
                         const isTaskChecked = checkedTaskIds.has(taskKey);
-                        const isGfg = prob.platform === "GeeksforGeeks" || prob.url?.includes("geeksforgeeks.org");
+                        const hasExternalUrl = Boolean(
+                          (typeof prob.url === "string" && prob.url.trim().startsWith("http")) ||
+                          (typeof prob.link === "string" && prob.link.trim().startsWith("http")) ||
+                          (typeof prob.external_url === "string" && prob.external_url.trim().startsWith("http"))
+                        );
+                        const externalUrl = prob.url || prob.link || prob.external_url;
+                        const isGfg = prob.platform === "GeeksforGeeks" || (externalUrl && externalUrl.includes("geeksforgeeks.org"));
 
                         return (
                           <div
-                            key={pIdx}
+                            key={prob.id || pIdx}
                             className={`p-3 rounded-2xl border transition-all flex items-start justify-between gap-3 ${isTaskChecked
                               ? "bg-emerald-50/50 border-emerald-200"
                               : "bg-background/60 border-border-subtle hover:border-brand-200"
@@ -908,7 +1135,7 @@ export const TopicDetailPage = () => {
                               <button
                                 type="button"
                                 onClick={() => handleToggleTask(taskKey)}
-                                className="shrink-0 mt-0.5 transition-transform active:scale-90"
+                                className="shrink-0 mt-0.5 transition-transform active:scale-90 cursor-pointer"
                               >
                                 {isTaskChecked ? (
                                   <CheckCircle2 className="h-4 w-4 text-emerald-600 fill-emerald-100" />
@@ -916,7 +1143,10 @@ export const TopicDetailPage = () => {
                                   <Circle className="h-4 w-4 text-secondary-text" />
                                 )}
                               </button>
-                              <div className="min-w-0 flex-1">
+                              <div
+                                className={`min-w-0 flex-1 ${!hasExternalUrl ? "cursor-pointer" : ""}`}
+                                onClick={!hasExternalUrl ? () => setActiveTab("practice") : undefined}
+                              >
                                 <div className="flex items-center gap-1.5 flex-wrap">
                                   <h4
                                     className={`text-xs font-bold ${isTaskChecked
@@ -924,7 +1154,7 @@ export const TopicDetailPage = () => {
                                       : "text-primary-text"
                                       }`}
                                   >
-                                    {prob.problemId && !prob.problemId.startsWith("gfg") ? `#${prob.problemId} ` : ""}{prob.title}
+                                    {prob.problemId && !prob.problemId.startsWith("gfg") ? `#${prob.problemId} ` : ""}{prob.title || prob.name}
                                   </h4>
                                   <span
                                     className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full ${prob.difficulty === "Easy"
@@ -937,24 +1167,43 @@ export const TopicDetailPage = () => {
                                     {prob.difficulty || "Easy"}
                                   </span>
                                 </div>
-                                {prob.description && (
+                                {(prob.description || prob.answer) && (
                                   <p className="text-[10px] text-secondary-text mt-0.5 line-clamp-1">
-                                    {prob.description}
+                                    {prob.description || prob.answer}
                                   </p>
                                 )}
                               </div>
                             </div>
 
-                            <a
-                              href={prob.url || prob.link || prob.external_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface border border-border-subtle hover:bg-background text-[11px] font-bold text-primary-text transition-all shrink-0 hover:border-brand-300"
-                              title={`Solve on ${isGfg ? "GeeksforGeeks" : "LeetCode"}`}
-                            >
-                              <span>{isGfg ? "GFG" : "LeetCode"}</span>
-                              <ExternalLink className="h-3 w-3 text-secondary-text" />
-                            </a>
+                            {hasExternalUrl ? (
+                              <a
+                                href={externalUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface border border-border-subtle hover:bg-background text-[11px] font-bold text-primary-text transition-all shrink-0 hover:border-brand-300"
+                                title={`Solve on ${prob.platform || (externalUrl.includes("mongopractice.online") ? "MongoPractice" : (isGfg ? "GeeksforGeeks" : "LeetCode"))}`}
+                              >
+                                <span>
+                                  {prob.platform ||
+                                    (externalUrl.includes("mongopractice.online")
+                                      ? "MongoPractice"
+                                      : isGfg
+                                        ? "GFG"
+                                        : "LeetCode")}
+                                </span>
+                                <ExternalLink className="h-3 w-3 text-secondary-text" />
+                              </a>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setActiveTab("practice")}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-brand-50 border border-brand-200 hover:bg-brand-100 text-[11px] font-bold text-brand-700 transition-all shrink-0 cursor-pointer"
+                                title="View full answer in Practical Evaluation"
+                              >
+                                <span>Answer</span>
+                                <ArrowRight className="h-3 w-3 text-brand-600" />
+                              </button>
+                            )}
                           </div>
                         );
                       })}
@@ -967,6 +1216,7 @@ export const TopicDetailPage = () => {
                     </div>
                   )}
                 </div>
+              )}
 
                 {/* 3. Recommended Documentation & Guides */}
                 <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-5 sm:p-6 space-y-4">
@@ -1023,10 +1273,692 @@ export const TopicDetailPage = () => {
           {/* ============================================================== */}
           {activeTab === "practice" && (
             <div className="space-y-6 animate-fade-in">
-              {/* ────────────────────────────────────────────────────────── */}
-              {/* VIEW 1: ACTIVE QUIZ RUNNER                                 */}
-              {/* ────────────────────────────────────────────────────────── */}
-              {quizMode === "active" && quizData?.quiz && (
+              {isMcqEvaluationTopic ? (() => {
+                const mcqQuestions = topic.practice_items || [];
+                const mcqTotal = mcqQuestions.length;
+
+                const quizMode = mcqQuizMode;
+                const setQuizMode = setMcqQuizMode;
+                const activeQuestionIndex = mcqActiveQuestionIndex;
+                const setActiveQuestionIndex = setMcqActiveQuestionIndex;
+                const selectedAnswers = mcqSelectedAnswers;
+                const setSelectedAnswers = setMcqSelectedAnswers;
+                const isTimerRunning = mcqIsTimerRunning;
+                const setIsTimerRunning = setMcqIsTimerRunning;
+                const timeLeft = mcqTimeLeft;
+                const setTimeLeft = setMcqTimeLeft;
+                const isTestSubmitted = mcqIsTestSubmitted;
+                const setIsTestSubmitted = setMcqIsTestSubmitted;
+
+                let mcqCorrect = 0;
+                let mcqIncorrect = 0;
+                let mcqUnattempted = 0;
+                let theoryCorrect = 0;
+                let theoryTotal = 0;
+                let numericalCorrect = 0;
+                let numericalTotal = 0;
+                let scenarioCorrect = 0;
+                let scenarioTotal = 0;
+
+                mcqQuestions.forEach((q, idx) => {
+                  const userAns = selectedAnswers[q.id] || selectedAnswers[idx];
+                  const isCorrect = userAns === q.correctAnswer;
+                  const cat = (q.category || "").toLowerCase();
+
+                  if (cat.includes("theory")) {
+                    theoryTotal++;
+                    if (isCorrect) theoryCorrect++;
+                  } else if (cat.includes("numerical") || cat.includes("memory")) {
+                    numericalTotal++;
+                    if (isCorrect) numericalCorrect++;
+                  } else {
+                    scenarioTotal++;
+                    if (isCorrect) scenarioCorrect++;
+                  }
+
+                  if (!userAns) {
+                    mcqUnattempted++;
+                  } else if (isCorrect) {
+                    mcqCorrect++;
+                  } else {
+                    mcqIncorrect++;
+                  }
+                });
+
+                const mcqPercentage = mcqTotal > 0 ? Math.round((mcqCorrect / mcqTotal) * 100) : 0;
+                const isTestPassed = mcqPercentage >= 70;
+                const answeredCount = Object.keys(selectedAnswers).length;
+                const currentQuestion = mcqQuestions[activeQuestionIndex] || mcqQuestions[0];
+
+                return (
+                  <div className="space-y-6">
+                    {/* 1. Header Banner & Mode Controls */}
+                    <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-6 sm:p-8 space-y-5">
+                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 pb-5 border-b border-border-subtle">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
+                              <Zap className="h-3.5 w-3.5" />
+                              <span>Timed Evaluation Test</span>
+                            </span>
+                            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                              Moderate to Hard (Placement & GATE Standard)
+                            </span>
+                            <span className="text-xs text-secondary-text bg-background px-2.5 py-0.5 rounded-full border border-border-subtle">
+                              {mcqTotal} Questions • 60 Mins
+                            </span>
+                          </div>
+
+                          <h2 className="text-xl sm:text-2xl font-extrabold text-primary-text">
+                            {topic.title}
+                          </h2>
+                          <p className="text-xs sm:text-sm text-secondary-text max-w-2xl leading-relaxed">
+                            Placement & GATE Standard evaluation covering theoretical foundations, analytical calculations, and production systems engineering.
+                          </p>
+
+                          {/* Breakdown Badges */}
+                          <div className="flex items-center gap-2 pt-1 flex-wrap">
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-xl bg-blue-50 text-blue-700 border border-blue-200">
+                              📘 {theoryTotal || 25} Theory & Concept
+                            </span>
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-xl bg-purple-50 text-purple-700 border border-purple-200">
+                              🔢 {numericalTotal || 15} Numerical & Memory Math
+                            </span>
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              ⚙️ {scenarioTotal || 10} Engineering Scenarios
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Timer & Mode Controls */}
+                        <div className="flex flex-col sm:flex-row lg:flex-col items-stretch sm:items-center lg:items-end gap-3 shrink-0">
+                          {/* Live Countdown Display */}
+                          <div
+                            className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl border font-mono font-bold text-base tracking-wider shadow-subtle ${
+                              isTimerRunning
+                                ? timeLeft <= 300
+                                  ? "bg-red-50 text-red-600 border-red-200 animate-pulse"
+                                  : "bg-indigo-50/70 text-indigo-700 border-indigo-200"
+                                : "bg-surface text-secondary-text border-border-subtle"
+                            }`}
+                          >
+                            <Clock
+                              className={`h-4 w-4 ${
+                                isTimerRunning
+                                  ? timeLeft <= 300
+                                    ? "text-red-600 animate-spin"
+                                    : "text-indigo-600"
+                                  : "text-secondary-text"
+                              }`}
+                            />
+                            <span>{formatTime(timeLeft)}</span>
+                          </div>
+
+                          {/* Mode Actions */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {quizMode === "timed" && !isTestSubmitted ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsTestSubmitted(true);
+                                  setIsTimerRunning(false);
+                                  setQuizMode("browse");
+                                }}
+                                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-subtle cursor-pointer"
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                <span>Submit Assessment</span>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setQuizMode("timed");
+                                  setActiveQuestionIndex(0);
+                                  setIsTimerRunning(true);
+                                  setIsTestSubmitted(false);
+                                }}
+                                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-subtle cursor-pointer"
+                              >
+                                <Zap className="h-3.5 w-3.5" />
+                                <span>{isTestSubmitted ? "Retake Timed Test" : "Start Timed Test"}</span>
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (quizMode === "timed") {
+                                  setQuizMode("browse");
+                                  setIsTimerRunning(false);
+                                } else {
+                                  setQuizMode("timed");
+                                  if (!isTestSubmitted) {
+                                    setIsTimerRunning(true);
+                                  }
+                                }
+                              }}
+                              className={`px-3.5 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                                quizMode === "browse"
+                                  ? "bg-purple-100 text-purple-900 border-purple-300"
+                                  : "bg-surface border-border-subtle text-primary-text hover:bg-background"
+                              }`}
+                            >
+                              {quizMode === "browse" ? "✓ Browse Mode Active" : "Practice / Browse Mode"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Status Bar */}
+                      <div className="flex items-center justify-between text-xs text-secondary-text flex-wrap gap-2 pt-1">
+                        <span className="font-medium">
+                          Answered: <strong className="text-primary-text">{answeredCount}</strong> / {mcqTotal}
+                        </span>
+                        {isTimerRunning && (
+                          <span className="text-amber-600 font-semibold flex items-center gap-1">
+                            <Zap className="h-3 w-3" /> Timed Assessment In Progress — Auto-submits when countdown expires.
+                          </span>
+                        )}
+                        {!isTimerRunning && !isTestSubmitted && (
+                          <span className="text-purple-600 font-semibold">
+                            💡 Self-Paced Browse Mode — Review questions freely or click "Start Timed Test" for timed exam conditions.
+                          </span>
+                        )}
+                        {isTestSubmitted && (
+                          <span className="text-emerald-600 font-semibold flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3" /> Assessment Submitted — Detailed Scorecard & Answers available below.
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 2. DEDICATED TIMED ASSESSMENT MODE (Single Question Aptitude Runner) */}
+                    {quizMode === "timed" && !isTestSubmitted && (
+                      <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-6 sm:p-8 space-y-6 animate-fade-in">
+                        {/* Top Bar */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-border-subtle">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
+                                <Zap className="h-3 w-3" />
+                                <span>Timed Assessment</span>
+                              </span>
+                              <span className="text-xs text-secondary-text font-medium">
+                                Passing Score: 70%
+                              </span>
+                            </div>
+                            <h2 className="text-lg sm:text-xl font-extrabold text-primary-text">
+                              {topic.title}
+                            </h2>
+                          </div>
+
+                          <div className="flex items-center gap-4 shrink-0">
+                            <span className="text-xs text-secondary-text font-medium hidden sm:inline">
+                              Answered: <strong className="text-primary-text">{answeredCount}</strong> / {mcqTotal}
+                            </span>
+                            <div
+                              className={`flex items-center gap-2 px-4 py-2 rounded-2xl border font-mono font-bold text-sm tracking-wider shadow-subtle ${
+                                timeLeft <= 300
+                                  ? "bg-red-50 text-red-600 border-red-200 animate-pulse"
+                                  : "bg-surface text-primary-text border-border-subtle"
+                              }`}
+                            >
+                              <Clock className={`h-4 w-4 ${timeLeft <= 300 ? "text-red-600 animate-spin" : "text-brand-600"}`} />
+                              <span>{formatTime(timeLeft)}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Question Navigator Pill Grid */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs text-secondary-text">
+                            <span className="font-semibold text-primary-text">Question Navigator</span>
+                            <span>
+                              Answered: {answeredCount} / {mcqTotal}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                            {mcqQuestions.map((q, idx) => {
+                              const isAnswered = selectedAnswers[q.id] !== undefined || selectedAnswers[idx] !== undefined;
+                              const isActive = activeQuestionIndex === idx;
+
+                              return (
+                                <button
+                                  key={q.id || idx}
+                                  type="button"
+                                  onClick={() => setActiveQuestionIndex(idx)}
+                                  className={`h-8 w-8 sm:h-9 sm:w-9 rounded-xl text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${
+                                    isActive
+                                      ? "bg-indigo-600 text-white font-semibold shadow-sm ring-2 ring-indigo-400 ring-offset-2"
+                                      : isAnswered
+                                      ? "bg-emerald-100 text-emerald-800 border border-emerald-300 font-medium"
+                                      : "bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100"
+                                  }`}
+                                >
+                                  {idx + 1}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Active Question Card */}
+                        {currentQuestion && (() => {
+                          const currentAns = selectedAnswers[currentQuestion.id] || selectedAnswers[activeQuestionIndex];
+
+                          return (
+                            <div className="space-y-5 pt-2">
+                              {/* Header */}
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between gap-3 flex-wrap">
+                                  <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">
+                                    QUESTION {activeQuestionIndex + 1} OF {mcqTotal}
+                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    {currentQuestion.category && (
+                                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                                        currentQuestion.category.toLowerCase().includes("theory")
+                                          ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                          : currentQuestion.category.toLowerCase().includes("numerical") || currentQuestion.category.toLowerCase().includes("memory")
+                                          ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                          : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                      }`}>
+                                        {currentQuestion.category}
+                                      </span>
+                                    )}
+                                    {currentQuestion.difficulty && (
+                                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                                        currentQuestion.difficulty === "Easy"
+                                          ? "bg-emerald-100 text-emerald-800"
+                                          : currentQuestion.difficulty === "Moderate" || currentQuestion.difficulty === "Medium"
+                                          ? "bg-amber-100 text-amber-800"
+                                          : "bg-red-100 text-red-800"
+                                      }`}>
+                                        {currentQuestion.difficulty}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Question Text */}
+                                <div className="pt-2">
+                                  <RenderMcqQuestionText text={currentQuestion.question || currentQuestion.title} />
+                                </div>
+                              </div>
+
+                              {/* Options List */}
+                              <div className="space-y-3 pt-2">
+                                {(currentQuestion.options || []).map((opt, optIdx) => {
+                                  const optLetter = getOptionLetter(opt, optIdx);
+                                  const optText = getOptionText(opt);
+                                  const isSelected = currentAns === optLetter;
+
+                                  return (
+                                    <div
+                                      key={optIdx}
+                                      onClick={() => {
+                                        setSelectedAnswers((prev) => ({
+                                          ...prev,
+                                          [currentQuestion.id]: optLetter,
+                                        }));
+                                      }}
+                                      className={`p-4 rounded-2xl border transition-all flex items-center gap-3.5 cursor-pointer select-none ${
+                                        isSelected
+                                          ? "border-indigo-600 bg-indigo-50/50 text-slate-900 shadow-sm ring-1 ring-indigo-500"
+                                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300"
+                                      }`}
+                                    >
+                                      <div
+                                        className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${
+                                          isSelected
+                                            ? "bg-indigo-600 text-white shadow-sm"
+                                            : "bg-slate-100 border border-slate-200 text-slate-600"
+                                        }`}
+                                      >
+                                        {optLetter}
+                                      </div>
+                                      <span className="text-xs sm:text-sm font-medium leading-relaxed">
+                                        {optText}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+
+                              {/* Bottom Navigation Controls */}
+                              <div className="flex items-center justify-between gap-4 pt-5 border-t border-border-subtle">
+                                <button
+                                  type="button"
+                                  disabled={activeQuestionIndex === 0}
+                                  onClick={() => setActiveQuestionIndex((prev) => Math.max(0, prev - 1))}
+                                  className="px-4 py-2.5 rounded-xl border border-border-subtle bg-surface text-xs font-bold text-primary-text hover:bg-background disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+                                >
+                                  Previous
+                                </button>
+
+                                <div className="flex items-center gap-3">
+                                  {activeQuestionIndex < mcqTotal - 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setActiveQuestionIndex((prev) => Math.min(mcqTotal - 1, prev + 1))}
+                                      className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold transition-all shadow-subtle cursor-pointer"
+                                    >
+                                      <span>Next →</span>
+                                    </button>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setIsTestSubmitted(true);
+                                      setIsTimerRunning(false);
+                                      setQuizMode("browse");
+                                    }}
+                                    className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-subtle cursor-pointer"
+                                  >
+                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                    <span>Submit Assessment</span>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+
+                    {/* 3. PRACTICE / BROWSE MODE (Full-List View or Submitted Review) */}
+                    {(quizMode === "browse" || isTestSubmitted) && (
+                      <div className="space-y-6">
+                        {/* Scorecard (When Submitted) */}
+                        {isTestSubmitted && (
+                          <div className={`p-6 sm:p-8 rounded-3xl border shadow-card space-y-5 animate-fade-in ${
+                            isTestPassed
+                              ? "bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-surface border-emerald-300"
+                              : "bg-gradient-to-br from-amber-500/10 via-red-500/5 to-surface border-amber-300"
+                          }`}>
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${
+                                    isTestPassed
+                                      ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                      : "bg-amber-100 text-amber-900 border border-amber-300"
+                                  }`}>
+                                    {isTestPassed ? (
+                                      <Trophy className="h-3.5 w-3.5 text-emerald-700" />
+                                    ) : (
+                                      <AlertTriangle className="h-3.5 w-3.5 text-amber-700" />
+                                    )}
+                                    <span>
+                                      {isTestPassed ? "Evaluation Test Passed & Mastered" : "Test Needs Improvement"}
+                                    </span>
+                                  </span>
+                                  <span className="text-xs text-secondary-text font-medium">
+                                    Passing Standard: 70%
+                                  </span>
+                                </div>
+
+                                <h2 className="text-2xl sm:text-3xl font-extrabold text-primary-text">
+                                  Score: {mcqCorrect} / {mcqTotal} ({mcqPercentage}%)
+                                </h2>
+                                <p className="text-xs sm:text-sm text-secondary-text max-w-2xl">
+                                  {isTestPassed
+                                    ? "🎉 Outstanding performance! You demonstrated mastery across core concepts, analytical problem solving, and production architectures."
+                                    : "You did not reach the 70% passing threshold. Review each question's detailed technical explanation below to solidify your understanding and retake the test."}
+                                </p>
+                              </div>
+
+                              {/* Action Buttons */}
+                              <div className="flex sm:flex-col gap-2.5 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedAnswers({});
+                                    setTimeLeft(3600);
+                                    setIsTestSubmitted(false);
+                                    setQuizMode("timed");
+                                    setActiveQuestionIndex(0);
+                                    setIsTimerRunning(true);
+                                  }}
+                                  className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold transition-all shadow-subtle cursor-pointer"
+                                >
+                                  <RotateCcw className="h-3.5 w-3.5" />
+                                  <span>Retake Assessment</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setQuizMode("browse");
+                                    const firstCard = document.getElementById("q-card-0");
+                                    if (firstCard) firstCard.scrollIntoView({ behavior: "smooth" });
+                                  }}
+                                  className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-surface border border-border-subtle hover:bg-background text-xs font-bold text-primary-text transition-all cursor-pointer"
+                                >
+                                  <span>Review All Questions</span>
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Section-Wise Scorecard Grid */}
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-2">
+                              <div className="p-3.5 rounded-2xl bg-surface border border-border-subtle text-center">
+                                <div className="text-[10px] text-secondary-text uppercase font-semibold">Total Score</div>
+                                <div className="text-lg font-extrabold text-primary-text mt-0.5">{mcqCorrect} / {mcqTotal}</div>
+                              </div>
+                              <div className="p-3.5 rounded-2xl bg-surface border border-emerald-200 text-center">
+                                <div className="text-[10px] text-emerald-700 uppercase font-semibold">Correct</div>
+                                <div className="text-lg font-extrabold text-emerald-600 mt-0.5">{mcqCorrect}</div>
+                              </div>
+                              <div className="p-3.5 rounded-2xl bg-surface border border-red-200 text-center">
+                                <div className="text-[10px] text-red-700 uppercase font-semibold">Incorrect</div>
+                                <div className="text-lg font-extrabold text-red-600 mt-0.5">{mcqIncorrect}</div>
+                              </div>
+                              <div className="p-3.5 rounded-2xl bg-surface border border-border-subtle text-center">
+                                <div className="text-[10px] text-secondary-text uppercase font-semibold">Unattempted</div>
+                                <div className="text-lg font-extrabold text-secondary-text mt-0.5">{mcqUnattempted}</div>
+                              </div>
+                              <div className="p-3.5 rounded-2xl bg-surface border border-blue-200 text-center">
+                                <div className="text-[10px] text-blue-700 uppercase font-semibold">Theory (25 Qs)</div>
+                                <div className="text-lg font-extrabold text-blue-600 mt-0.5">{theoryCorrect} / {theoryTotal}</div>
+                              </div>
+                              <div className="p-3.5 rounded-2xl bg-surface border border-purple-200 text-center">
+                                <div className="text-[10px] text-purple-700 uppercase font-semibold">Numerical (15 Qs)</div>
+                                <div className="text-lg font-extrabold text-purple-600 mt-0.5">{numericalCorrect} / {numericalTotal}</div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Full Vertical List of Questions */}
+                        <div className="space-y-5">
+                          {mcqQuestions.map((q, idx) => {
+                            const userAns = selectedAnswers[q.id] || selectedAnswers[idx];
+                            const isExplanationRevealed = isTestSubmitted || mcqRevealedExplanations[q.id];
+                            const isUserCorrect = userAns === q.correctAnswer;
+
+                            return (
+                              <div
+                                key={q.id || idx}
+                                id={`q-card-${idx}`}
+                                className={`p-6 sm:p-7 rounded-3xl border transition-all space-y-4 shadow-card ${
+                                  isTestSubmitted
+                                    ? isUserCorrect
+                                      ? "bg-emerald-50/20 border-emerald-200"
+                                      : userAns
+                                      ? "bg-red-50/20 border-red-200"
+                                      : "bg-surface border-border-subtle"
+                                    : "bg-surface border-border-subtle"
+                                }`}
+                              >
+                                {/* Question Header */}
+                                <div className="flex items-start justify-between gap-3 flex-wrap">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-xs font-extrabold text-primary-text px-2.5 py-1 rounded-xl bg-background border border-border-subtle">
+                                      Q{idx + 1}
+                                    </span>
+                                    {q.category && (
+                                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                                        (q.category || "").toLowerCase().includes("theory")
+                                          ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                          : (q.category || "").toLowerCase().includes("numerical") || (q.category || "").toLowerCase().includes("memory")
+                                          ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                          : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                      }`}>
+                                        {q.category}
+                                      </span>
+                                    )}
+                                    {q.difficulty && (
+                                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                                        q.difficulty === "Easy"
+                                          ? "bg-emerald-100 text-emerald-800"
+                                          : q.difficulty === "Moderate" || q.difficulty === "Medium"
+                                          ? "bg-amber-100 text-amber-800"
+                                          : "bg-red-100 text-red-800"
+                                      }`}>
+                                        {q.difficulty}
+                                      </span>
+                                    )}
+                                    {isTestSubmitted && (
+                                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 ${
+                                        isUserCorrect
+                                          ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                          : userAns
+                                          ? "bg-red-100 text-red-800 border border-red-300"
+                                          : "bg-slate-100 text-slate-700 border border-slate-300"
+                                      }`}>
+                                        {isUserCorrect ? (
+                                          <>
+                                            <CheckCircle2 className="h-3 w-3" /> Correct
+                                          </>
+                                        ) : userAns ? (
+                                          <>
+                                            <XCircle className="h-3 w-3" /> Incorrect
+                                          </>
+                                        ) : (
+                                          <span>Unattempted</span>
+                                        )}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Browse Mode Explanation Toggle */}
+                                  {!isTestSubmitted && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setMcqRevealedExplanations((prev) => ({
+                                          ...prev,
+                                          [q.id]: !prev[q.id],
+                                        }));
+                                      }}
+                                      className="flex items-center gap-1 text-xs font-bold text-brand-600 hover:text-brand-700 cursor-pointer"
+                                    >
+                                      <Sparkles className="h-3.5 w-3.5" />
+                                      <span>{isExplanationRevealed ? "Hide Explanation" : "Show Answer / Explanation"}</span>
+                                    </button>
+                                  )}
+                                </div>
+
+                                {/* Question Text */}
+                                <div className="pt-1">
+                                  <RenderMcqQuestionText text={q.question || q.title} />
+                                </div>
+
+                                {/* 4 Clickable Option Buttons */}
+                                <div className="space-y-2.5 pt-2">
+                                  {(q.options || []).map((opt, optIdx) => {
+                                    const optLetter = getOptionLetter(opt, optIdx);
+                                    const optText = getOptionText(opt);
+                                    const isSelected = userAns === optLetter;
+                                    const isCorrect = optLetter === q.correctAnswer;
+
+                                    let optClass = "bg-background/60 border-border-subtle hover:border-brand-200 hover:bg-background";
+                                    let badge = null;
+
+                                    if (isExplanationRevealed) {
+                                      if (isCorrect) {
+                                        optClass = "bg-emerald-500/10 border-emerald-500 text-emerald-950 font-semibold ring-1 ring-emerald-400";
+                                        badge = (
+                                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 flex items-center gap-1 shrink-0">
+                                            <Check className="h-3 w-3" /> Correct Answer
+                                          </span>
+                                        );
+                                      } else if (isSelected && !isCorrect) {
+                                        optClass = "bg-red-500/10 border-red-500 text-red-950 font-semibold ring-1 ring-red-400";
+                                        badge = (
+                                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-200 text-red-900 flex items-center gap-1 shrink-0">
+                                            <XCircle className="h-3 w-3" /> Your Selection
+                                          </span>
+                                        );
+                                      } else {
+                                        optClass = "bg-background/40 border-border-subtle/80 text-secondary-text opacity-70";
+                                      }
+                                    } else if (isSelected) {
+                                      optClass = "bg-brand-500/10 border-brand-500 ring-1 ring-brand-400 font-semibold";
+                                    }
+
+                                    return (
+                                      <div
+                                        key={optIdx}
+                                        onClick={() => {
+                                          if (isTestSubmitted) return;
+                                          setSelectedAnswers((prev) => ({
+                                            ...prev,
+                                            [q.id]: optLetter,
+                                          }));
+                                          if (quizMode === "browse") {
+                                            setMcqRevealedExplanations((prev) => ({
+                                              ...prev,
+                                              [q.id]: true,
+                                            }));
+                                          }
+                                        }}
+                                        className={`p-3.5 sm:p-4 rounded-2xl border text-xs sm:text-sm flex items-center justify-between gap-3 cursor-pointer select-none transition-all ${optClass}`}
+                                      >
+                                        <div className="flex items-center gap-3 min-w-0">
+                                          <div className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${
+                                            isSelected
+                                              ? "bg-brand-600 text-white"
+                                              : isExplanationRevealed && isCorrect
+                                              ? "bg-emerald-600 text-white"
+                                              : "bg-surface border border-border-subtle text-secondary-text"
+                                          }`}>
+                                            {optLetter}
+                                          </div>
+                                          <span className="leading-relaxed">{optText}</span>
+                                        </div>
+                                        {badge}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+
+                                {/* Technical Explanation Box */}
+                                {isExplanationRevealed && q.explanation && (
+                                  <div className="mt-4 p-4 rounded-2xl bg-surface border border-emerald-200/80 text-xs sm:text-sm text-secondary-text leading-relaxed shadow-sm">
+                                    <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 uppercase tracking-wider mb-1.5">
+                                      <Sparkles className="h-3.5 w-3.5" />
+                                      <span>Option {q.correctAnswer} — Technical Analysis & Concept Reference:</span>
+                                    </div>
+                                    <p className="text-primary-text leading-relaxed">{q.explanation}</p>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })() : (
+                <>
+                  {/* ────────────────────────────────────────────────────────── */}
+                  {/* VIEW 1: ACTIVE QUIZ RUNNER                                 */}
+                  {/* ────────────────────────────────────────────────────────── */}
+                  {quizMode === "active" && quizData?.quiz && (
                 <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-6 sm:p-8 space-y-6 animate-fade-in">
                   {/* Top Bar: Title & Live Countdown Timer */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-border-subtle">
@@ -1498,7 +2430,140 @@ export const TopicDetailPage = () => {
               {/* Dynamic Pillar Evaluation Interface (Only in overview mode) */}
               {quizMode === "overview" && (
                 <>
-                  {isDatabaseTopic ? (
+                  {isInterviewQATopic ? (
+                    /* Technical Interview Q&A Evaluation */
+                    <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-6 sm:p-8 space-y-6">
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                        <div>
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-50 text-brand-700 text-xs font-bold mb-2">
+                            <HelpCircle className="h-3.5 w-3.5" />
+                            <span>Technical Interview Q&A Round</span>
+                          </div>
+                          <h2 className="text-xl font-bold text-primary-text">
+                            High-Frequency Interview Questions & Solutions
+                          </h2>
+                          <p className="text-xs text-secondary-text mt-1 max-w-xl">
+                            Master these core architectural and conceptual questions frequently asked in placement interviews. Review the detailed solutions and check off items as you master them.
+                          </p>
+                        </div>
+                        {topic.practice_items?.length > 0 && (
+                          <span className="text-xs font-bold px-3 py-1 rounded-full bg-brand-50 text-brand-700 border border-brand-200 self-start">
+                            {topic.practice_items.filter((prob, idx) => checkedTaskIds.has(`prob_${prob.problemId || prob.id || idx}`)).length} / {topic.practice_items.length} Mastered
+                          </span>
+                        )}
+                      </div>
+
+                      {topic.practice_items?.length > 0 ? (
+                        <div className="space-y-4">
+                          {topic.practice_items.map((item, pIdx) => {
+                            const taskKey = `prob_${item.problemId || item.id || pIdx}`;
+                            const isTaskChecked = checkedTaskIds.has(taskKey);
+                            const hasUrl = Boolean(
+                              (typeof item.url === "string" && item.url.trim().startsWith("http")) ||
+                              (typeof item.link === "string" && item.link.trim().startsWith("http")) ||
+                              (typeof item.external_url === "string" && item.external_url.trim().startsWith("http"))
+                            );
+                            const url = item.url || item.link || item.external_url;
+                            const answerContent = item.answer || item.description;
+
+                            return (
+                              <div
+                                key={item.id || pIdx}
+                                className={`p-5 rounded-2xl border transition-all space-y-3.5 ${
+                                  isTaskChecked
+                                    ? "bg-emerald-50/40 border-emerald-200"
+                                    : "bg-background/60 border-border-subtle hover:border-brand-200"
+                                }`}
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleTask(taskKey)}
+                                      className="shrink-0 mt-0.5 transition-transform active:scale-90 cursor-pointer"
+                                      title={isTaskChecked ? "Mark as uncompleted" : "Mark as mastered"}
+                                    >
+                                      {isTaskChecked ? (
+                                        <CheckCircle2 className="h-5 w-5 text-emerald-600 fill-emerald-100" />
+                                      ) : (
+                                        <Circle className="h-5 w-5 text-secondary-text" />
+                                      )}
+                                    </button>
+
+                                    <div className="min-w-0 flex-1 space-y-1">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <h3
+                                          className={`text-sm sm:text-base font-bold ${
+                                            isTaskChecked
+                                              ? "line-through text-emerald-950 opacity-80"
+                                              : "text-primary-text"
+                                          }`}
+                                        >
+                                          {item.title || item.name}
+                                        </h3>
+                                        {item.difficulty && (
+                                          <span
+                                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                              item.difficulty === "Easy"
+                                                ? "bg-emerald-100 text-emerald-800"
+                                                : item.difficulty === "Medium"
+                                                ? "bg-amber-100 text-amber-800"
+                                                : "bg-red-100 text-red-800"
+                                            }`}
+                                          >
+                                            {item.difficulty}
+                                          </span>
+                                        )}
+                                        {item.platform && item.platform !== "Technical Interview QA" && (
+                                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                            {item.platform}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {hasUrl && (
+                                    <a
+                                      href={url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface border border-border-subtle hover:bg-background text-xs font-bold text-primary-text transition-all shrink-0 hover:border-brand-300"
+                                    >
+                                      <span>{item.platform ? `Practice on ${item.platform} ↗` : "Open Link ↗"}</span>
+                                      <ExternalLink className="h-3 w-3 text-secondary-text" />
+                                    </a>
+                                  )}
+                                </div>
+
+                                {answerContent && (
+                                  <div className="pl-8 pt-1">
+                                    <div className="p-4 sm:p-5 rounded-2xl bg-surface border border-border-subtle/80 text-xs sm:text-sm text-secondary-text leading-relaxed">
+                                      <div className="text-[11px] font-bold uppercase tracking-wider text-brand-600 mb-2 flex items-center gap-1.5">
+                                        <Sparkles className="h-3.5 w-3.5 text-brand-500" />
+                                        <span>Interview Answer & Technical Explanation</span>
+                                      </div>
+                                      <SimpleMarkdown content={answerContent} />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="p-6 rounded-2xl bg-background/60 border border-border-subtle text-center space-y-2">
+                          <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto" />
+                          <h3 className="text-sm font-bold text-primary-text">
+                            Conceptual Mastery Module
+                          </h3>
+                          <p className="text-xs text-secondary-text max-w-md mx-auto">
+                            Review the architectural notes and syntax reference before proceeding to the next lecture.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ) : isDatabaseTopic ? (
                     /* Database Evaluation: Curated SQL Problems or Conceptual Notice */
                     <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-6 sm:p-8 space-y-6">
                       <div>
@@ -1508,12 +2573,16 @@ export const TopicDetailPage = () => {
                         </div>
                         <h2 className="text-xl font-bold text-primary-text">
                           {topic.practice_items?.length > 0
-                            ? "Curated SQL Problem Solving Challenge"
+                            ? (topic.slug?.startsWith("mongo-") || topic.track_slug === "mongodb-mastery"
+                                ? "Curated MongoDB Practice Challenge"
+                                : "Curated SQL Problem Solving Challenge")
                             : "Conceptual & Setup Verification"}
                         </h2>
                         <p className="text-xs text-secondary-text mt-1 max-w-xl">
                           {topic.practice_items?.length > 0
-                            ? "Solve the target SQL queries on LeetCode. Verify your edge cases and check off items once completed."
+                            ? (topic.slug?.startsWith("mongo-") || topic.track_slug === "mongodb-mastery"
+                                ? "Solve the target MongoDB queries on MongoPractice. Verify your edge cases and check off items once completed."
+                                : "Solve the target SQL queries on LeetCode. Verify your edge cases and check off items once completed.")
                             : "Conceptual & Setup Lecture — No coding judge problems required for this topic. Review the architectural notes and syntax reference before proceeding to practical query lectures."}
                         </p>
                       </div>
@@ -1575,7 +2644,7 @@ export const TopicDetailPage = () => {
                                 </div>
 
                                 <a
-                                  href={prob.url || prob.link || prob.external_url || "https://leetcode.com"}
+                                  href={prob.url || prob.link || prob.external_url || (prob.platform === "MongoPractice" || prob.url?.includes("mongopractice.online") ? "https://mongopractice.online" : "https://leetcode.com")}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface border border-border-subtle hover:bg-background text-xs font-bold text-primary-text transition-all shrink-0 hover:border-brand-300"
@@ -1583,9 +2652,11 @@ export const TopicDetailPage = () => {
                                   <span>
                                     {prob.platform
                                       ? `Solve on ${prob.platform} ↗`
-                                      : isGfg
-                                        ? "Solve on GFG ↗"
-                                        : "Solve on LeetCode ↗"}
+                                      : prob.url?.includes("mongopractice.online")
+                                        ? "Solve on MongoPractice ↗"
+                                        : isGfg
+                                          ? "Solve on GFG ↗"
+                                          : "Solve on LeetCode ↗"}
                                   </span>
                                 </a>
                               </div>
@@ -2044,8 +3115,10 @@ export const TopicDetailPage = () => {
                   </div>
                 </>
               )}
-            </div>
+            </>
           )}
+        </div>
+      )}
         </div>
       ) : null}
     </div>
