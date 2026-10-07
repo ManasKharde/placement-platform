@@ -483,8 +483,9 @@ Part of the **${trackName || "Software Engineering"}** curriculum designed for m
       AND t.slug NOT LIKE 'js-lecture-%'
       AND t.slug NOT LIKE 'node-lecture-%'
       AND t.slug NOT LIKE 'cs-%'
-      AND (tt.track_id IS NULL OR tt.track_id NOT IN (22, 24, 654, 655, 708))
-      AND (tr.slug IS NULL OR tr.slug NOT IN ('core-computer-science-fundamentals', 'core-computer-science', 'nodejs-express-architecture', 'postgresql-mastery', 'mongodb-mastery', 'javascript-mastery'))
+      AND t.slug NOT LIKE 'aptitude-%'
+      AND (tt.track_id IS NULL OR tt.track_id NOT IN (22, 24, 27, 654, 655, 708))
+      AND (tr.slug IS NULL OR tr.slug NOT IN ('core-computer-science-fundamentals', 'core-computer-science', 'nodejs-express-architecture', 'postgresql-mastery', 'mongodb-mastery', 'javascript-mastery', 'aptitude'))
   `);
 
   console.log(`Found ${topicsRes.rows.length} topics in database to enrich.`);

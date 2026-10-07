@@ -391,6 +391,9 @@ export const TopicDetailPage = () => {
       const res = await apiClient.get(`/topics/${topicId}`);
       if (res.data?.topic) {
         setTopic(res.data.topic);
+        const qCount = res.data.topic.practice_items?.length || 0;
+        const initialSeconds = qCount <= 25 ? 1800 : 3600;
+        setMcqTimeLeft(initialSeconds);
       } else {
         setError("Topic details could not be found.");
       }
@@ -428,11 +431,18 @@ export const TopicDetailPage = () => {
       setMcqActiveQuestionIndex(0);
       setMcqSelectedAnswers({});
       setMcqIsTimerRunning(false);
-      setMcqTimeLeft(3600);
       setMcqIsTestSubmitted(false);
       setMcqRevealedExplanations({});
     }
   }, [topicId]);
+
+  useEffect(() => {
+    if (topic?.practice_items?.length) {
+      const qCount = topic.practice_items.length;
+      const initialSeconds = qCount <= 25 ? 1800 : 3600;
+      setMcqTimeLeft(initialSeconds);
+    }
+  }, [topic]);
 
   // Handle Assessment Submission
   const handleSubmitQuiz = async (answersToSubmit = selectedAnswersRef.current) => {
@@ -1029,18 +1039,30 @@ export const TopicDetailPage = () => {
                           Timed Evaluation Suite
                         </h3>
                       </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
-                        {topic.practice_items?.length || 50} Questions • 60 Mins
-                      </span>
+                      {(() => {
+                        const overviewQCount = topic.practice_items?.length || 50;
+                        const overviewMinutes = overviewQCount <= 25 ? 30 : 60;
+                        return (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
+                            {overviewQCount} Questions • {overviewMinutes} Mins
+                          </span>
+                        );
+                      })()}
                     </div>
 
                     <div className="space-y-3">
                       <div>
-                        <h4 className="text-xs sm:text-sm font-bold text-primary-text">
-                          50-Question Timed Evaluation Test (60 Mins)
-                        </h4>
+                        {(() => {
+                          const overviewQCount = topic.practice_items?.length || 50;
+                          const overviewMinutes = overviewQCount <= 25 ? 30 : 60;
+                          return (
+                            <h4 className="text-xs sm:text-sm font-bold text-primary-text">
+                              {overviewQCount}-Question Timed Evaluation Test ({overviewMinutes} Mins)
+                            </h4>
+                          );
+                        })()}
                         <p className="text-[11px] text-secondary-text mt-1 leading-relaxed">
-                          GATE & Placement Standard exam covering Memory Layout, Virtual Tables, Deep Copy, Diamond Problem, and SOLID Principles.
+                          Standard evaluation covering core foundations, analytical problem solving, and real-world placement assessment.
                         </p>
                       </div>
 
@@ -1073,6 +1095,8 @@ export const TopicDetailPage = () => {
                             setActiveTab("practice");
                             if (!mcqIsTestSubmitted) {
                               setMcqQuizMode("timed");
+                              const qCount = topic.practice_items?.length || 50;
+                              setMcqTimeLeft(qCount <= 25 ? 1800 : 3600);
                               setMcqIsTimerRunning(true);
                             }
                           }}
@@ -1276,6 +1300,8 @@ export const TopicDetailPage = () => {
               {isMcqEvaluationTopic ? (() => {
                 const mcqQuestions = topic.practice_items || [];
                 const mcqTotal = mcqQuestions.length;
+                const defaultTestSeconds = mcqTotal <= 25 ? 1800 : 3600;
+                const defaultTestMinutes = mcqTotal <= 25 ? 30 : 60;
 
                 const quizMode = mcqQuizMode;
                 const setQuizMode = setMcqQuizMode;
@@ -1342,10 +1368,10 @@ export const TopicDetailPage = () => {
                               <span>Timed Evaluation Test</span>
                             </span>
                             <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
-                              Moderate to Hard (Placement & GATE Standard)
+                              Moderate to Hard (Placement & Competitive Exam Standard)
                             </span>
                             <span className="text-xs text-secondary-text bg-background px-2.5 py-0.5 rounded-full border border-border-subtle">
-                              {mcqTotal} Questions • 60 Mins
+                              {mcqTotal} Questions • {defaultTestMinutes} Mins
                             </span>
                           </div>
 
@@ -1353,19 +1379,19 @@ export const TopicDetailPage = () => {
                             {topic.title}
                           </h2>
                           <p className="text-xs sm:text-sm text-secondary-text max-w-2xl leading-relaxed">
-                            Placement & GATE Standard evaluation covering theoretical foundations, analytical calculations, and production systems engineering.
+                            Placement & Competitive Exam evaluation covering theoretical concepts, numerical shortcuts, and analytical problem solving.
                           </p>
 
                           {/* Breakdown Badges */}
                           <div className="flex items-center gap-2 pt-1 flex-wrap">
                             <span className="text-xs font-semibold px-2.5 py-1 rounded-xl bg-blue-50 text-blue-700 border border-blue-200">
-                              📘 {theoryTotal || 25} Theory & Concept
+                              📘 {theoryTotal || Math.ceil(mcqTotal * 0.5)} Theory & Concepts
                             </span>
                             <span className="text-xs font-semibold px-2.5 py-1 rounded-xl bg-purple-50 text-purple-700 border border-purple-200">
-                              🔢 {numericalTotal || 15} Numerical & Memory Math
+                              🔢 {numericalTotal || Math.floor(mcqTotal * 0.3)} Numerical & Calculations
                             </span>
                             <span className="text-xs font-semibold px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              ⚙️ {scenarioTotal || 10} Engineering Scenarios
+                              ⚙️ {scenarioTotal || Math.floor(mcqTotal * 0.2)} Applications & Shortcuts
                             </span>
                           </div>
                         </div>
@@ -1415,8 +1441,14 @@ export const TopicDetailPage = () => {
                                 onClick={() => {
                                   setQuizMode("timed");
                                   setActiveQuestionIndex(0);
+                                  if (!isTestSubmitted) {
+                                    if (timeLeft === 0) setTimeLeft(defaultTestSeconds);
+                                  } else {
+                                    setSelectedAnswers({});
+                                    setTimeLeft(defaultTestSeconds);
+                                    setIsTestSubmitted(false);
+                                  }
                                   setIsTimerRunning(true);
-                                  setIsTestSubmitted(false);
                                 }}
                                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-subtle cursor-pointer"
                               >
@@ -1434,6 +1466,7 @@ export const TopicDetailPage = () => {
                                 } else {
                                   setQuizMode("timed");
                                   if (!isTestSubmitted) {
+                                    if (timeLeft === 0) setTimeLeft(defaultTestSeconds);
                                     setIsTimerRunning(true);
                                   }
                                 }
@@ -1716,7 +1749,7 @@ export const TopicDetailPage = () => {
                                   type="button"
                                   onClick={() => {
                                     setSelectedAnswers({});
-                                    setTimeLeft(3600);
+                                    setTimeLeft(defaultTestSeconds);
                                     setIsTestSubmitted(false);
                                     setQuizMode("timed");
                                     setActiveQuestionIndex(0);
