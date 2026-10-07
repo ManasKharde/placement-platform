@@ -89,6 +89,75 @@ const getTrackTheme = (track, index = 0) => {
     };
   }
 
+  // JavaScript & Modern ES6+ Architecture
+  if (
+    slug.includes("javascript") ||
+    slug.includes("es6") ||
+    name.includes("javascript")
+  ) {
+    return {
+      icon: Code,
+      color: "from-amber-500 via-yellow-500 to-amber-600",
+      bgLight: "bg-amber-50",
+      borderLight: "border-amber-200",
+      textLight: "text-amber-800",
+      accentBar: "bg-yellow-500",
+      badgeText: "Language Architecture",
+    };
+  }
+
+  // Node.js, Express.js & Backend Development
+  if (
+    slug.includes("node") ||
+    slug.includes("express") ||
+    name.includes("backend") ||
+    name.includes("development")
+  ) {
+    return {
+      icon: Terminal,
+      color: "from-emerald-600 via-green-600 to-teal-700",
+      bgLight: "bg-emerald-50",
+      borderLight: "border-emerald-200",
+      textLight: "text-emerald-700",
+      accentBar: "bg-emerald-600",
+      badgeText: "Backend & API Architecture",
+    };
+  }
+
+  // Version Control Systems (Git & GitHub)
+  if (
+    slug.includes("version-control") ||
+    slug.includes("git") ||
+    name.includes("version control") ||
+    name.includes("git")
+  ) {
+    return {
+      icon: Compass,
+      color: "from-orange-500 via-rose-500 to-red-600",
+      bgLight: "bg-orange-50",
+      borderLight: "border-orange-200",
+      textLight: "text-orange-700",
+      accentBar: "bg-orange-600",
+      badgeText: "DevOps & Collaboration",
+    };
+  }
+
+  // System Design
+  if (
+    slug.includes("system-design") ||
+    name.includes("system design")
+  ) {
+    return {
+      icon: Layers,
+      color: "from-pink-500 via-rose-600 to-rose-700",
+      bgLight: "bg-rose-50",
+      borderLight: "border-rose-200",
+      textLight: "text-rose-700",
+      accentBar: "bg-rose-600",
+      badgeText: "System Architecture",
+    };
+  }
+
   // Core CS Fundamentals
   if (
     slug.includes("computer-science") ||
@@ -97,11 +166,11 @@ const getTrackTheme = (track, index = 0) => {
   ) {
     return {
       icon: Cpu,
-      color: "from-emerald-500 via-teal-600 to-teal-700",
-      bgLight: "bg-emerald-50",
-      borderLight: "border-emerald-200",
-      textLight: "text-emerald-700",
-      accentBar: "bg-emerald-600",
+      color: "from-indigo-500 via-blue-600 to-cyan-700",
+      bgLight: "bg-indigo-50",
+      borderLight: "border-indigo-200",
+      textLight: "text-indigo-700",
+      accentBar: "bg-indigo-600",
       badgeText: "CS Systems Core",
     };
   }
@@ -123,24 +192,7 @@ const getTrackTheme = (track, index = 0) => {
     };
   }
 
-  // System Design & Deployment
-  if (
-    slug.includes("system-design") ||
-    slug.includes("deployment") ||
-    name.includes("system design")
-  ) {
-    return {
-      icon: Layers,
-      color: "from-pink-500 via-rose-600 to-rose-700",
-      bgLight: "bg-rose-50",
-      borderLight: "border-rose-200",
-      textLight: "text-rose-700",
-      accentBar: "bg-rose-600",
-      badgeText: "High Scale Architecture",
-    };
-  }
-
-  // Default / Development tracks (Node.js, Express, Frontend, etc.)
+  // Default / Development tracks fallback
   const palettes = [
     {
       icon: Code,
@@ -175,20 +227,28 @@ const getTrackTabLabel = (track) => {
   if (slug === "databases" || name === "databases") {
     return "Databases";
   }
+  if (slug.includes("javascript") || name.includes("javascript")) {
+    return "JavaScript";
+  }
   if (
     slug.includes("node") ||
-    slug.includes("dev") ||
     slug.includes("express") ||
     name.includes("development") ||
     name.includes("backend")
   ) {
     return "Development";
   }
-  if (slug.includes("aptitude") || name.includes("aptitude") || name.includes("reasoning")) {
-    return "Aptitude";
+  if (slug.includes("version-control") || slug.includes("git") || name.includes("version control")) {
+    return "Version Control";
   }
   if (slug.includes("system-design") || name.includes("system design") || slug.includes("deployment")) {
-    return "System Design & Deployment";
+    return "System Design";
+  }
+  if (slug.includes("computer-science") || slug.includes("cs") || name.includes("computer science")) {
+    return "Core CS";
+  }
+  if (slug.includes("aptitude") || name.includes("aptitude") || name.includes("reasoning")) {
+    return "Aptitude";
   }
   return track.title || track.name;
 };
@@ -679,7 +739,7 @@ export const RoadmapPage = () => {
           <div className="max-w-6xl mx-auto px-4 sm:px-8">
             <div
               ref={dockContainerRef}
-              className="flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth py-1"
+              className="flex items-center gap-2 overflow-x-auto scroll-smooth py-1 pb-2"
             >
               {tracks.map((track) => (
                 <button

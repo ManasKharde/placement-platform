@@ -256,13 +256,13 @@ const getUserRoadmap = async (req, res) => {
         t.description AS track_description,
         t.evaluation_type,
         t.parent_track_id,
-        COALESCE(t.track_order, pt.track_order, 1) AS track_order
+        COALESCE(pt.track_order, t.track_order, 1) AS track_order
       FROM user_preparation_paths upp
       JOIN preparation_paths pp ON upp.path_id = pp.id AND pp.is_active = true
       JOIN path_tracks pt ON pp.id = pt.path_id
       JOIN tracks t ON pt.track_id = t.id
       WHERE upp.user_id = $1 AND t.parent_track_id IS NULL
-      ORDER BY COALESCE(t.track_order, pt.track_order, 1) ASC;
+      ORDER BY COALESCE(pt.track_order, t.track_order, 1) ASC;
     `;
 
     const roadmapResult = await pool.query(roadmapQuery, [userId]);
