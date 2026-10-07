@@ -202,10 +202,10 @@ const calculateUserReadiness = async (userId) => {
   const averageReadiness =
     rolesBreakdown.length > 0
       ? Math.round(
-          (rolesBreakdown.reduce((sum, r) => sum + r.readinessScore, 0) /
-            rolesBreakdown.length) *
-            10
-        ) / 10
+        (rolesBreakdown.reduce((sum, r) => sum + r.readinessScore, 0) /
+          rolesBreakdown.length) *
+        10
+      ) / 10
       : 0;
 
   return {
