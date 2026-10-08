@@ -1,185 +1,280 @@
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
-require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
+const dotenv = require('dotenv');
+
+// Safely load environment variables BEFORE importing db pool
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+
 const pool = require('../config/db');
 
-async function migrateJavaRoadmap() {
+const cleanUrl = (url) => {
+  if (!url) return url;
+  const match = url.match(/\[([^\]]+)\]\(([^)]+)\)/);
+  const clean = match ? match[2] : url;
+  return clean.trim();
+};
+
+const CLEAN_SUMMARY = `> **Note:** As this is a very big lecture (62+ hours), if there are some concepts you have already learned then please skip them to focus on the modules relevant to your preparation.
+
+---
+
+### 📌 Lecture Curriculum & Architectural Breakdown
+
+### 1. Java Core Foundations & JVM Internals
+* **Architecture:** Java Virtual Machine (JVM), Java Runtime Environment (JRE), Java Development Kit (JDK), Bytecode compilation, JIT Compiler, and Write Once, Run Anywhere (WORA) mechanics.
+* **Primitive Types & Operations:** Primitive variable types, memory ranges, arithmetic/bitwise operators, automatic type conversion vs explicit casting.
+* **Control Flow:** Ternary operator, if-else ladder, standard vs enhanced switch expressions, and nested looping constructs (for, while, do-while).
+
+### 2. Object-Oriented Programming (OOP) & Memory Layout
+* **Classes & Objects:** Stack vs Heap memory allocation, reference variables, instance methods, and method overloading.
+* **Arrays & Strings:** 1D, Multi-dimensional, and Jagged arrays; Array of Objects; String Constant Pool (SCP) immutability vs heap allocations; StringBuffer and StringBuilder thread-safety.
+* **Encapsulation & Scope:** The static keyword (variables, methods, initialization blocks), this keyword, constructor overloading, packages, and access modifiers.
+* **Inheritance & Polymorphism:** Class hierarchy, super() vs this(), method overriding, Dynamic Method Dispatch (Runtime Polymorphism), final modifier, upcasting vs downcasting.
+* **Abstraction & Contracts:** Abstract classes vs pure abstract methods, Member Inner Classes, Static Nested Classes, and Anonymous Inner Classes.
+
+### 3. Modern Java (8 to 21) & Functional Programming
+* **Interfaces:** Interface contracts, default and static methods in interfaces, multiple interface inheritance.
+* **Functional Programming:** Single Abstract Method (SAM) interfaces, Lambda Expressions syntax, method references (::), and functional composition.
+* **Enums & Annotations:** Custom Enumerations with fields/constructors, built-in annotations (@Override, @Deprecated, @SuppressWarnings), and custom runtime reflection annotations.
+
+### 4. Robustness: Exception Handling & IO
+* **Exception Hierarchy:** Throwable, Exception, RuntimeException, Error.
+* **Flow Control:** try-catch-finally blocks, multiple catch handling, checked vs unchecked exceptions, throw vs throws propagation.
+* **Resource Management:** Custom application exceptions and Automatic Resource Management via try-with-resources (AutoCloseable).
+* **Console IO:** Legacy BufferedReader vs modern Scanner parsing.
+
+### 5. Multithreading & High Concurrency
+* **Thread Mechanics:** Thread lifecycle, Thread class extension vs Runnable interface implementation, thread priority states, and thread starvation.
+* **Concurrency Primitives:** Race conditions, critical sections, object-level vs class-level synchronization (synchronized keyword/blocks).
+* **Inter-Thread Communication:** The Producer-Consumer pattern using wait(), notify(), and notifyAll().
+
+### 6. Java Collections Framework & Generics
+* **Collection Interfaces:** Generic type safety (<T>), List, Queue, Set, and Map taxonomy.
+* **List Implementations:** ArrayList (dynamic arrays, amortization) vs LinkedList (doubly-linked nodes).
+* **Set & Map Internals:** HashSet vs TreeSet (Red-Black tree ordering); HashMap collision handling (hashing, buckets, treeification) vs TreeMap vs thread-safe alternatives.
+* **Comparisons:** Natural ordering via Comparable (compareTo) vs dynamic ordering via Comparator (custom Lambdas).
+* **Stream API:** Stream pipelines, Lazy evaluation, Intermediate operations (filter, map, sorted, distinct), Terminal operations (collect, reduce, count, forEach), and Parallel Streams.
+
+### 7. Persistence & Database Connectivity (JDBC)
+* **JDBC Architecture:** Drivers, DriverManager, database connection pooling concepts.
+* **SQL Execution:** Statement vs parameterized PreparedStatement (SQL injection prevention), ResultSet cursor manipulation, and CRUD transaction lifecycle.
+
+### 8. Web Foundations & Servlets
+* **HTTP Protocol:** Web servers vs Application containers (Tomcat), Request-Response lifecycle.
+* **Servlets:** Servlet container initialization, lifecycle methods (init, service, destroy), HTTP verbs handling (GET, POST).
+
+### 9. Enterprise Java: Spring Framework & Spring Boot
+* **Spring Core:** Inversion of Control (IoC), Dependency Injection (DI), Spring ApplicationContext, Bean lifecycle, annotation-driven configuration (@Component, @Autowired, @Configuration, @Bean, @Qualifier, @Value).
+* **Spring Boot:** Auto-configuration architecture, Starter POM dependencies, @SpringBootApplication, application configuration (application.properties / application.yml).
+* **REST API Development:** Spring MVC architecture, building production REST endpoints with @RestController, @GetMapping, @PostMapping, @PutMapping, @DeleteMapping, request parsing (@PathVariable, @RequestParam, @RequestBody), ResponseEntity<T>, HTTP status codes, and centralized exception handling (@ControllerAdvice, @ExceptionHandler).
+
+### 10. Spring Data JPA & Hibernate ORM
+* **ORM Principles:** Object-Relational Mapping fundamentals, Hibernate SessionFactory and EntityManager.
+* **JPA Annotations:** @Entity, @Table, @Id, @GeneratedValue, @Column.
+* **Entity Relationships:** @OneToOne, @OneToMany, @ManyToOne, @ManyToMany, Fetch types (Lazy vs Eager), Cascading rules.
+* **Data Layer:** JpaRepository abstractions, derived query methods, custom JPQL queries, native SQL queries via @Query, and transactional boundaries via @Transactional.`;
+
+async function fixJavaMasterclassMetadata() {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    // 1. Identify Path Table and Join Table
-    const tableCheck = await client.query(`
+    // 1. Delete any quizzes and quiz questions linked to topic 22262
+    const quizTableCheck = await client.query(`
       SELECT table_name FROM information_schema.tables 
-      WHERE table_schema = 'public' AND table_name IN ('path_tracks', 'preparation_path_tracks', 'preparation_paths');
+      WHERE table_schema = 'public' AND table_name IN ('quizzes', 'quiz_questions', 'quiz_options', 'quiz_submissions', 'user_quiz_attempts');
     `);
-    const tables = tableCheck.rows.map(r => r.table_name);
-    const joinTable = tables.includes('preparation_path_tracks') ? 'preparation_path_tracks' : 'path_tracks';
-    console.log(`Using join table: "${joinTable}"`);
+    const existingTables = new Set(quizTableCheck.rows.map(r => r.table_name));
 
-    // Ensure columns exist on preparation_paths
-    await client.query(`
-      ALTER TABLE preparation_paths 
-      ADD COLUMN IF NOT EXISTS title VARCHAR(255),
-      ADD COLUMN IF NOT EXISTS total_tracks INTEGER DEFAULT 0,
-      ADD COLUMN IF NOT EXISTS total_topics INTEGER DEFAULT 0;
-    `);
-
-    // 2. Locate Java Path (ID 2)
-    const pathRes = await client.query(`
-      SELECT * FROM preparation_paths 
-      WHERE id = 2 OR title ILIKE '%Java%Developer%' OR name ILIKE '%Java%Developer%' OR slug ILIKE '%java%'
-      ORDER BY id ASC
-      LIMIT 1;
-    `);
-
-    if (pathRes.rows.length === 0) {
-      throw new Error("Could not find Java preparation path.");
-    }
-
-    const pathObj = pathRes.rows[0];
-    console.log(`Found path: [ID ${pathObj.id}] "${pathObj.title || pathObj.name}" (slug: ${pathObj.slug})`);
-
-    // 3. Rename Path to "Java Backend Developer"
-    await client.query(`
-      UPDATE preparation_paths 
-      SET 
-        name = 'Java Backend Developer',
-        title = 'Java Backend Developer',
-        slug = 'java-backend-developer',
-        description = 'Enterprise backend software engineering with Java, Spring Boot, Microservices, System Design, and Scalable Database Architectures.'
-      WHERE id = $1;
-    `, [pathObj.id]);
-    console.log('✅ Updated path name, title, slug, and description to "Java Backend Developer"');
-
-    // 4. Find all dummy tracks to unlink
-    const dummyTracksRes = await client.query(`
-      SELECT id, name, slug FROM tracks 
-      WHERE slug IN ('core-java', 'core-java-oop', 'relational-databases-jdbc-hibernate', 'java-databases-jpa', 'spring-boot-rest-apis-microservices', 'spring-boot-microservices', 'cs-fundamentals')
-         OR (id IN (15, 16, 17, 2))
-         OR name ILIKE '%Core Java%' 
-         OR name ILIKE '%JDBC%Hibernate%' 
-         OR name ILIKE '%Spring Boot%';
-    `);
-    const dummyTrackIds = dummyTracksRes.rows.map(r => r.id);
-    console.log(`Identified dummy tracks:`, dummyTracksRes.rows.map(t => `[${t.id}] ${t.name} (${t.slug})`));
-
-    // Clear all existing mappings for this path
-    const deleteRes = await client.query(`DELETE FROM ${joinTable} WHERE path_id = $1;`, [pathObj.id]);
-    console.log(`Cleaned up previous join table mappings (${deleteRes.rowCount} removed).`);
-
-    // 5. Target Sequence for Java Backend Developer:
-    // 1. DSA (Track 25: Problem Solving: DSA & SQL)
-    // 2. Databases (Track 660: Databases)
-    // 3. Version Control Systems (Track 709: Version Control Systems)
-    // 4. System Design (Track 28: System Design)
-    // 5. Core Computer Science (Track 22: Core Computer Science)
-    // 6. Aptitude (Track 27: Aptitude)
-    const targetTrackIds = [25, 660, 709, 28, 22, 27];
-
-    let totalTopicsSum = 0;
-    let orderIndex = 1;
-
-    for (const trackId of targetTrackIds) {
-      const trackRes = await client.query(`
-        SELECT id, name, title, slug, total_topics FROM tracks WHERE id = $1;
-      `, [trackId]);
-
-      if (trackRes.rows.length === 0) {
-        console.warn(`⚠️ Track ID ${trackId} not found in database!`);
-        continue;
+    if (existingTables.has('quizzes')) {
+      const quizCheck = await client.query(`SELECT id FROM quizzes WHERE topic_id = 22262;`);
+      for (const q of quizCheck.rows) {
+        if (existingTables.has('quiz_submissions')) {
+          await client.query(`DELETE FROM quiz_submissions WHERE quiz_id = $1;`, [q.id]).catch(() => {});
+        }
+        if (existingTables.has('user_quiz_attempts')) {
+          await client.query(`DELETE FROM user_quiz_attempts WHERE quiz_id = $1;`, [q.id]).catch(() => {});
+        }
+        if (existingTables.has('quiz_options')) {
+          await client.query(`DELETE FROM quiz_options WHERE question_id IN (SELECT id FROM quiz_questions WHERE quiz_id = $1);`, [q.id]).catch(() => {});
+        }
+        if (existingTables.has('quiz_questions')) {
+          await client.query(`DELETE FROM quiz_questions WHERE quiz_id = $1;`, [q.id]).catch(() => {});
+        }
       }
-
-      const track = trackRes.rows[0];
-
-      // Get count of topics (including sub-track topics if parent track)
-      const countRes = await client.query(`
-        SELECT COUNT(DISTINCT tt.topic_id) AS cnt
-        FROM track_topics tt
-        WHERE tt.track_id = $1 
-           OR tt.track_id IN (SELECT id FROM tracks WHERE parent_track_id = $1);
-      `, [trackId]);
-
-      const effectiveTopics = Math.max(
-        parseInt(track.total_topics, 10) || 0,
-        parseInt(countRes.rows[0]?.cnt, 10) || 0
-      );
-
-      // Link in join table
-      await client.query(`
-        INSERT INTO ${joinTable} (path_id, track_id, track_order)
-        VALUES ($1, $2, $3);
-      `, [pathObj.id, track.id, orderIndex]);
-
-      totalTopicsSum += effectiveTopics;
-      console.log(`✅ Linked Track [Order ${orderIndex}]: [ID ${track.id}] "${track.title || track.name}" (${track.slug}) - ${effectiveTopics} topics`);
-      orderIndex++;
+      await client.query(`DELETE FROM quizzes WHERE topic_id = 22262;`);
     }
 
-    const linkedTrackCount = orderIndex - 1;
+    if (existingTables.has('quiz_questions')) {
+      // Also delete any dangling questions directly linked by topic_id if column exists
+      const qqColsRes = await client.query(`
+        SELECT column_name FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'quiz_questions';
+      `);
+      const qqCols = new Set(qqColsRes.rows.map(r => r.column_name));
+      if (qqCols.has('topic_id')) {
+        await client.query(`DELETE FROM quiz_questions WHERE topic_id = 22262;`);
+      }
+    }
+    console.log('Cleared quiz and evaluation questions for topic 22262.');
 
-    // 6. Recalculate and update path metadata
+    // 2. Inspect 'topics' columns dynamically
+    const topicColsRes = await client.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_schema = 'public' AND table_name = 'topics';
+    `);
+    const topicCols = new Set(topicColsRes.rows.map(r => r.column_name));
+
+    const videoLinksObj = [
+      {
+        title: 'Complete Java Development Course - 62+ Hours Bootcamp',
+        url: cleanUrl('https://youtu.be/q6z_UCBM5Ek'),
+        duration: '62:55:08',
+        duration_minutes: 3775,
+        creator_name: 'Telusko',
+        creator_channel_url: cleanUrl('https://www.youtube.com/@Telusko')
+      }
+    ];
+
+    const topicUpdates = [];
+    const topicParams = [];
+
+    const addTopicField = (col, val, cast = null) => {
+      if (topicCols.has(col)) {
+        topicParams.push(val);
+        topicUpdates.push(`${col} = $${topicParams.length}${cast ? `::${cast}` : ''}`);
+      }
+    };
+
+    addTopicField('title', 'Complete Java Backend Development Masterclass');
+    addTopicField('name', 'Complete Java Backend Development Masterclass');
+    addTopicField('duration_minutes', 3775);
+    addTopicField('estimated_minutes', 3775);
+    addTopicField('duration', 3775);
+    addTopicField('practice_items', '[]', 'jsonb');
+    addTopicField('practice_problems', '[]', 'jsonb');
+    addTopicField('creator_name', 'Telusko');
+    addTopicField('creator_channel_url', cleanUrl('https://www.youtube.com/@Telusko'));
+    addTopicField('summary_markdown', CLEAN_SUMMARY);
+    addTopicField('theory_summary', CLEAN_SUMMARY);
+    addTopicField('video_url', cleanUrl('https://youtu.be/q6z_UCBM5Ek'));
+    addTopicField('video_title', 'Complete Java Development Course - 62+ Hours Bootcamp');
+    addTopicField('video_links', JSON.stringify(videoLinksObj), 'jsonb');
+
+    topicParams.push(22262);
+    const topicIdParamIndex = topicParams.length;
+
     await client.query(`
-      UPDATE preparation_paths 
-      SET 
-        total_tracks = $1,
-        total_topics = $2
-      WHERE id = $3;
-    `, [linkedTrackCount, totalTopicsSum, pathObj.id]);
-    console.log(`✅ Updated path totals: ${linkedTrackCount} tracks, ${totalTopicsSum} topics.`);
+      UPDATE topics 
+      SET ${topicUpdates.join(', ')}
+      WHERE id = $${topicIdParamIndex} OR slug = 'java-backend-one-shot';
+    `, topicParams);
+    console.log('Updated topic 22262 with duration_minutes/estimated_minutes = 3775, video duration = 62:55:08, and cleaned summary.');
+
+    // 3. Inspect and update 'resources' table if present
+    const resTableCheck = await client.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_schema = 'public' AND table_name = 'resources';
+    `);
+    const resCols = new Set(resTableCheck.rows.map(r => r.column_name));
+
+    if (resCols.size > 0 && resCols.has('topic_id')) {
+      const resUpdates = [];
+      const resParams = [];
+
+      const addResField = (col, val) => {
+        if (resCols.has(col)) {
+          resParams.push(val);
+          resUpdates.push(`${col} = $${resParams.length}`);
+        }
+      };
+
+      addResField('title', 'Complete Java Development Course - 62+ Hours Bootcamp');
+      addResField('url', cleanUrl('https://youtu.be/q6z_UCBM5Ek'));
+      addResField('duration_minutes', 3775);
+      addResField('duration', '62:55:08');
+      addResField('creator_name', 'Telusko');
+      addResField('creator_channel_url', cleanUrl('https://www.youtube.com/@Telusko'));
+
+      if (resUpdates.length > 0) {
+        resParams.push(22262);
+        await client.query(`
+          UPDATE resources 
+          SET ${resUpdates.join(', ')}
+          WHERE topic_id = $${resParams.length};
+        `, resParams);
+        console.log('Updated resources table for topic 22262.');
+      }
+    }
+
+    // 4. Update Development track duration
+    const trackColsRes = await client.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_schema = 'public' AND table_name = 'tracks';
+    `);
+    const trackCols = new Set(trackColsRes.rows.map(r => r.column_name));
+
+    const trackUpdates = [];
+    const trackParams = [];
+
+    if (trackCols.has('duration_hours')) {
+      trackParams.push(63);
+      trackUpdates.push(`duration_hours = $${trackParams.length}`);
+    }
+    if (trackCols.has('duration_minutes')) {
+      trackParams.push(3775);
+      trackUpdates.push(`duration_minutes = $${trackParams.length}`);
+    }
+
+    if (trackUpdates.length > 0) {
+      await client.query(`
+        UPDATE tracks 
+        SET ${trackUpdates.join(', ')}
+        WHERE slug = 'java-backend-development' OR id = 712;
+      `, trackParams);
+      console.log('Updated tracks table duration metadata.');
+    }
+
+    // 5. Update preparation_paths if duration column exists
+    const pathColsRes = await client.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_schema = 'public' AND table_name = 'preparation_paths';
+    `);
+    const pathCols = new Set(pathColsRes.rows.map(r => r.column_name));
+    if (pathCols.has('duration_hours')) {
+      // Sum up duration_hours of linked tracks
+      const sumRes = await client.query(`
+        SELECT COALESCE(SUM(t.duration_hours), 0) AS total_hrs
+        FROM path_tracks pt
+        JOIN tracks t ON t.id = pt.track_id
+        WHERE pt.path_id = 2;
+      `);
+      await client.query(`
+        UPDATE preparation_paths
+        SET duration_hours = $1
+        WHERE id = 2;
+      `, [sumRes.rows[0].total_hrs]);
+      console.log(`Updated preparation_paths (id 2) duration_hours = ${sumRes.rows[0].total_hrs}.`);
+    }
 
     await client.query('COMMIT');
-    console.log('\nMigration committed successfully!');
+    console.log('Database updates committed successfully!');
 
-    // 7. Verification query
+    // 6. Verification
+    const durationCol = topicCols.has('estimated_minutes') ? 'estimated_minutes' : 'duration_minutes';
     const verify = await client.query(`
-      SELECT 
-        pt.track_order, 
-        t.id AS track_id, 
-        COALESCE(t.title, t.name) AS track_title, 
-        t.slug AS track_slug, 
-        t.evaluation_type,
-        t.total_topics
-      FROM ${joinTable} pt
-      JOIN tracks t ON t.id = pt.track_id
-      WHERE pt.path_id = $1
-      ORDER BY pt.track_order ASC;
-    `, [pathObj.id]);
-
-    const updatedPathRes = await client.query(`
-      SELECT id, name, title, slug, description, total_tracks, total_topics
-      FROM preparation_paths 
-      WHERE id = $1;
-    `, [pathObj.id]);
-
-    console.log('\n=== JAVA BACKEND DEVELOPER PATH INFO ===');
-    console.table(updatedPathRes.rows);
-
-    console.log('\n=== LINKED TRACKS (ORDER 1 THROUGH 6) ===');
+      SELECT id, title, slug, ${durationCol} AS duration_minutes, creator_name, creator_channel_url,
+             practice_items,
+             (SELECT COUNT(*) FROM quizzes WHERE topic_id = t.id) AS quiz_count
+      FROM topics t
+      WHERE id = 22262;
+    `);
+    console.log('\n=== VERIFICATION: TOPIC 22262 UPDATED METADATA ===');
     console.table(verify.rows);
-
-    // 8. Verify simulated roadmap query
-    const roadmapSim = await client.query(`
-      SELECT 
-        pp.name AS path_name,
-        t.id AS track_id,
-        COALESCE(t.name, t.title) AS track_name,
-        t.slug AS track_slug,
-        t.evaluation_type,
-        COALESCE(pt.track_order, t.track_order, 1) AS track_order
-      FROM ${joinTable} pt
-      JOIN preparation_paths pp ON pt.path_id = pp.id AND pp.is_active = true
-      JOIN tracks t ON pt.track_id = t.id
-      WHERE pt.path_id = $1 AND t.parent_track_id IS NULL
-      ORDER BY COALESCE(pt.track_order, t.track_order, 1) ASC;
-    `, [pathObj.id]);
-
-    console.log('\n=== ROADMAP SIMULATION FOR JAVA BACKEND DEVELOPER ===');
-    console.table(roadmapSim.rows);
 
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('❌ Migration failed:', err);
+    console.error('Error during update:', err);
     process.exit(1);
   } finally {
     client.release();
@@ -187,4 +282,4 @@ async function migrateJavaRoadmap() {
   }
 }
 
-migrateJavaRoadmap();
+fixJavaMasterclassMetadata();
