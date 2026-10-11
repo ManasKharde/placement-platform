@@ -13,297 +13,686 @@ function cleanUrl(url) {
   return url.replace(/^\[|\]$/g, '').trim();
 }
 
-const LECTURES = [
+const REACT_PRACTICE_QUESTIONS_RAW = [
   {
-    slug: 'django-full-course-masterclass',
-    title: 'Django Full Course | Beginner to Advanced',
-    module_name: 'Django & REST API Framework',
-    topic_order: 1,
-    duration_minutes: 959, // 15h 59m
-    video_url: 'https://youtu.be/iflSRpcyzdI',
-    video_title: 'Django Full Course 2026 in Hindi | Beginner to Advanced | Projects + Interview Preparation',
-    creator_name: 'Mohit Decodes',
-    creator_channel_url: 'https://www.youtube.com/@mohitdecodes',
-    short_description: 'An exhaustive 15+ hour Django masterclass covering MVT architecture, ORM, migrations, views, URLs, templates, admin panel, DRF, caching, and email handling.',
-    summary_markdown: `> **Note:** This is a comprehensive 15+ hour masterclass. Skip sections you already know and focus on the DRF and Caching sections for advanced interview prep.
-
-### 📌 Django Architecture Blueprint
-1. **MVT Architecture:** Understand Model-View-Template and how it differs from MVC.
-2. **Django ORM:** Object-Relational Mapping, querysets (\`all\`, \`filter\`, \`exclude\`), and database migrations.
-3. **Django REST Framework (DRF):** Serializers, ViewSets, APIViews, GenericAPIViews, and Routers for API development.
-4. **Authentication & Security:** Custom user models, JWT stateless authentication, sessions, and CSRF protection.
-5. **Caching & Emails:** Redis/Memcached caching strategies (per-view, template fragment) and Celery email delegation.`,
-    practice_items: [
-      { id: "dj-1", type: "quiz", title: "What is Django's MVT architecture?", description: "MVT stands for Model-View-Template. The Model handles database logic, the View handles business logic and acts as the controller, and the Template handles the presentation (HTML)." },
-      { id: "dj-2", type: "quiz", title: "How does Django's ORM prevent SQL injection?", description: "Django's ORM automatically escapes all parameters used in database queries by separating the query from the parameters, preventing malicious SQL execution." },
-      { id: "dj-3", type: "quiz", title: "What is the N+1 query problem and how do you fix it in Django?", description: "It occurs when accessing related objects in a loop, causing N additional DB queries. Fix it using `select_related()` for ForeignKey and `prefetch_related()` for ManyToMany fields." },
-      { id: "dj-4", type: "quiz", title: "What is the difference between `null=True` and `blank=True` in a model field?", description: "`null=True` affects the database (stores NULL). `blank=True` affects form validation (allows empty fields). For CharFields, use `blank=True` instead of `null=True`." },
-      { id: "dj-5", type: "quiz", title: "Explain the `manage.py makemigrations` and `migrate` commands.", description: "`makemigrations` generates Python scripts representing changes to your models. `migrate` executes those scripts to apply the schema changes to the database." },
-      { id: "dj-6", type: "quiz", title: "How do you create a custom User model in Django?", description: "Subclass `AbstractUser` or `AbstractBaseUser` in `models.py` and set `AUTH_USER_MODEL = 'app_name.CustomUser'` in `settings.py` before initial migrations." },
-      { id: "dj-7", type: "quiz", title: "What is the purpose of CSRF tokens in Django?", description: "Cross-Site Request Forgery (CSRF) tokens protect against malicious attacks by verifying that POST requests originate from the site's own trusted forms, not external sites." },
-      { id: "dj-8", type: "quiz", title: "What is the difference between `APIView` and `ViewSet` in DRF?", description: "`APIView` maps HTTP methods (get, post) to handler functions. `ViewSet` maps actions (list, retrieve, create) to methods, allowing automatic URL routing via Routers." },
-      { id: "dj-9", type: "quiz", title: "How do Serializers work in Django REST Framework?", description: "Serializers translate complex Python data types (like querysets) into JSON format, and parse incoming JSON data back into Python objects after validating the input." },
-      { id: "dj-10", type: "quiz", title: "Explain stateless authentication using JWT.", description: "JSON Web Tokens contain the user's identity and a signature. The server verifies the signature without checking the database, making it stateless and scalable." },
-      { id: "dj-11", type: "quiz", title: "What is the role of Middleware in Django?", description: "Middleware is a series of hooks into Django's request/response processing. It can intercept, modify, or block requests globally (e.g., Authentication, CSRF)." },
-      { id: "dj-12", type: "quiz", title: "How do you optimize a Django QuerySet that fetches a large dataset?", description: "Use `.iterator()` to prevent loading the entire queryset into memory, or use `.values()` / `.values_list()` to only fetch the specific columns needed." },
-      { id: "dj-13", type: "quiz", title: "What does `transaction.atomic()` do?", description: "It wraps a block of code in a database transaction. If an exception occurs within the block, all database changes are rolled back automatically to maintain integrity." },
-      { id: "dj-14", type: "quiz", title: "Explain the difference between `get()` and `filter()`.", description: "`get()` returns a single object and raises an exception if 0 or multiple objects match. `filter()` returns a QuerySet containing all matching objects (can be empty)." },
-      { id: "dj-15", type: "quiz", title: "How does Django handle sessions?", description: "Django stores session data in the database (by default) and sends a session ID cookie to the client. The client sends the cookie back to identify themselves." },
-      { id: "dj-16", type: "quiz", title: "What is the `related_name` attribute used for in ForeignKey fields?", description: "It specifies the name of the reverse relation from the related model back to the defining model, allowing backwards querying without using the default `modelname_set`." },
-      { id: "dj-17", type: "quiz", title: "How do you implement pagination in DRF?", description: "Configure `DEFAULT_PAGINATION_CLASS` and `PAGE_SIZE` in `settings.py`, or override `pagination_class` in a specific View/ViewSet to return chunked data." },
-      { id: "dj-18", type: "quiz", title: "What are Django Signals?", description: "A dispatcher allowing decoupled apps to get notified when actions occur elsewhere (e.g., `post_save`, `pre_delete`). Useful for side effects like sending welcome emails." },
-      { id: "dj-19", type: "quiz", title: "How do you serve static files in production vs development?", description: "In development, Django serves them automatically via `runserver`. In production, you run `collectstatic` to gather them into `STATIC_ROOT` and serve them via Nginx/CDN." },
-      { id: "dj-20", type: "quiz", title: "Explain Cache-Aside strategy in Django.", description: "Before querying the database, the app checks the cache (e.g., Redis). If data exists (hit), it's returned. If not (miss), it queries the DB, stores it in cache, and returns it." },
-      { id: "dj-21", type: "quiz", title: "What is the difference between `@staticmethod` and `@classmethod` in Python?", description: "`@classmethod` takes `cls` as the first argument and can access class state. `@staticmethod` takes no implicit argument and behaves like a regular function inside a class namespace." },
-      { id: "dj-22", type: "quiz", title: "How do you handle background tasks in a Django application?", description: "Use Celery with a message broker like Redis or RabbitMQ to offload long-running tasks (e.g., email sending, data processing) from the main request/response cycle." },
-      { id: "dj-23", type: "quiz", title: "What is a slug in Django and why use it?", description: "A slug is a URL-friendly string (e.g., 'my-first-post') typically derived from a title. It improves SEO and makes URLs more readable than using integer IDs." },
-      { id: "dj-24", type: "quiz", title: "Explain the purpose of `F()` expressions.", description: "`F()` allows referencing model field values directly in the database without pulling them into Python memory, avoiding race conditions during updates (e.g., `views = F('views') + 1`)." },
-      { id: "dj-25", type: "quiz", title: "What is the `__str__` method in a Django model?", description: "It defines the human-readable string representation of an object, which is used in the Django admin panel and shell output." },
-      { id: "dj-26", type: "quiz", title: "How do you override the save() method in a model?", description: "Define `def save(self, *args, **kwargs):` in your model, add custom logic (e.g., generating a slug), and then call `super().save(*args, **kwargs)`." },
-      { id: "dj-27", type: "quiz", title: "What is the `unique_together` Meta option?", description: "It enforces a unique constraint across multiple fields at the database level, ensuring that no two rows have the exact same combination of values for those fields." },
-      { id: "dj-28", type: "quiz", title: "Explain token-based authentication vs JWT.", description: "Standard token auth stores tokens in the database. JWT is stateless; the token itself contains the user payload and signature, requiring no database lookup for verification." },
-      { id: "dj-29", type: "quiz", title: "What is Cross-Origin Resource Sharing (CORS) and how is it handled?", description: "CORS is a browser security feature. Use `django-cors-headers` middleware and configure `CORS_ALLOWED_ORIGINS` to permit frontend applications (e.g., React) to access the API." },
-      { id: "dj-30", type: "quiz", title: "How do you implement generic views in Django?", description: "Use classes like `ListView`, `DetailView`, or `CreateView` from `django.views.generic`. They abstract common patterns and drastically reduce boilerplate code." },
-      { id: "dj-31", type: "quiz", title: "What is the difference between `ModelForm` and `Form`?", description: "`ModelForm` automatically generates fields and validation based on an existing Django model, while `Form` requires manual definition of every field and validation rule." },
-      { id: "dj-32", type: "quiz", title: "How do you handle file uploads in Django?", description: "Ensure the HTML form has `enctype=\"multipart/form-data\"`. In views, handle `request.FILES`. Models should use `FileField` or `ImageField` with `upload_to` specified." },
-      { id: "dj-33", type: "quiz", title: "Explain the `Q` object in Django queries.", description: "`Q` objects are used to construct complex database queries involving logical OR (`|`) and NOT (`~`) operators, which cannot be done with standard `filter()` arguments." },
-      { id: "dj-34", type: "quiz", title: "What is database indexing and how do you apply it in Django?", description: "Indexing speeds up read operations but slows down writes. Apply it using `db_index=True` on a field or defining `indexes` in the model's `Meta` class." },
-      { id: "dj-35", type: "quiz", title: "How do you perform aggregation in Django?", description: "Use the `aggregate()` function to calculate values over an entire QuerySet (e.g., `Sum('price')`), or `annotate()` to calculate values per object in the QuerySet." },
-      { id: "dj-36", type: "quiz", title: "What is the role of `settings.py`?", description: "It acts as the central configuration file for a Django project, containing database settings, installed apps, middleware, static file configurations, and security keys." },
-      { id: "dj-37", type: "quiz", title: "Explain per-view caching.", description: "Using the `@cache_page` decorator, Django caches the HTML output of a specific view for a defined duration, bypassing the entire view execution for subsequent requests." },
-      { id: "dj-38", type: "quiz", title: "How do you run custom management commands in Django?", description: "Create a `management/commands` directory within an app, add a Python file with a `Command` class inheriting from `BaseCommand`, and define the `handle()` method." },
-      { id: "dj-39", type: "quiz", title: "What is Django's `get_object_or_404` shortcut?", description: "It tries to fetch an object from the database using `get()`. If the object does not exist, it raises an `Http404` exception instead of a 500 server error." },
-      { id: "dj-40", type: "quiz", title: "How does routing work in Django REST Framework?", description: "DRF provides `SimpleRouter` and `DefaultRouter` which automatically generate URL confs for ViewSets, handling routing for list, create, retrieve, update, and destroy actions." },
-      { id: "dj-41", type: "quiz", title: "What is the purpose of `WSGI` and `ASGI`?", description: "WSGI handles synchronous Python web applications. ASGI is the modern standard for asynchronous Python web applications, enabling WebSockets and long-polling." },
-      { id: "dj-42", type: "quiz", title: "How do you validate data in a DRF Serializer?", description: "Define custom validation methods like `validate_<fieldname>(self, value)` for single fields, or `validate(self, data)` for object-level cross-field validation." },
-      { id: "dj-43", type: "quiz", title: "Explain the difference between `ModelSerializer` and `Serializer`.", description: "`ModelSerializer` automatically generates a set of fields and default `create()`/`update()` methods based on a model. `Serializer` requires manual implementation of everything." },
-      { id: "dj-44", type: "quiz", title: "What are permissions in DRF?", description: "Permissions determine if a request should be granted access. Common classes include `IsAuthenticated`, `IsAdminUser`, and `AllowAny`. Custom permissions can check object-level access." },
-      { id: "dj-45", type: "quiz", title: "How do you serialize nested relationships in DRF?", description: "Use nested serializers (e.g., `author = AuthorSerializer()`) or relational fields like `StringRelatedField` or `PrimaryKeyRelatedField` within the main serializer." },
-      { id: "dj-46", type: "quiz", title: "What is Throttling in DRF?", description: "Throttling limits the rate at which clients can make requests to the API (e.g., 100 requests/hour) to prevent abuse, scraping, or Denial of Service attacks." },
-      { id: "dj-47", type: "quiz", title: "How do you test Django applications?", description: "Use Django's `TestCase` class. It creates a separate test database, runs tests, and destroys it afterward. DRF provides `APITestCase` for testing API endpoints." },
-      { id: "dj-48", type: "quiz", title: "What are Context Processors in Django?", description: "Functions that inject variables globally into the context of every template across the application (e.g., user auth status, global settings), preventing repetitive view code." },
-      { id: "dj-49", type: "quiz", title: "Explain the use of `select_for_update()`.", description: "It locks the selected database rows until the end of the transaction, preventing race conditions when multiple concurrent requests attempt to modify the same data." },
-      { id: "dj-50", type: "quiz", title: "How do you handle environment variables securely in Django?", description: "Use tools like `python-dotenv` or `django-environ` to load sensitive data (SECRET_KEY, DB credentials) from a `.env` file, which is excluded from version control." }
-    ]
+    question: "What is React.js and what is its primary purpose?",
+    type: "multiple_choice",
+    options: [
+      "A backend framework for Node.js",
+      "A JavaScript library used for building user interfaces, specifically for single-page applications",
+      "A database management system",
+      "A CSS preprocessor"
+    ],
+    correct_answer: "A JavaScript library used for building user interfaces, specifically for single-page applications",
+    correct_index: 1,
+    explanation: "React is a declarative, efficient, and flexible JavaScript library for building user interfaces. It lets you compose complex UIs from small and isolated pieces of code called components."
   },
   {
-    slug: 'django-react-ecommerce-full-stack',
-    title: 'Django + React Full Stack E-Commerce Build',
-    module_name: 'Production Deployments & Integrations',
-    topic_order: 2,
-    duration_minutes: 197, // 3h 17m
-    video_url: 'https://youtu.be/eeZDJCPTFx4',
-    video_title: 'Django + React E-Commerce Full Stack Project | 3 Hours | Real World Project',
-    creator_name: 'Mohit Decodes',
-    creator_channel_url: 'https://www.youtube.com/@mohitdecodes',
-    short_description: 'Build a production-ready e-commerce platform integrating Django REST Framework (DRF) backend, PostgreSQL, and a React frontend styled with TailwindCSS.',
-    summary_markdown: `> **Note:** This practical build consolidates API design, React integration, and database architecture.
-
-### 📌 Architecture Breakdown
-1. **Infrastructure:** PostgreSQL database, DRF backend, and React (Vite) frontend.
-2. **CORS:** Enabling Cross-Origin Resource Sharing for backend-frontend communication.
-3. **Authentication:** JWT access and refresh token management stored securely.
-4. **State Management:** React Context API for global cart state and user session handling.
-5. **Checkout Flow:** Creating orders, handling quantities, and clearing cart data.`,
-    practice_items: [
-      { id: "ec-1", type: "quiz", title: "Why is PostgreSQL preferred over SQLite for production E-Commerce apps?", description: "PostgreSQL handles high concurrency, supports complex analytical queries, enforces strict data integrity, and does not suffer from SQLite's database-level locking during writes." },
-      { id: "ec-2", type: "quiz", title: "How do you prevent a 'Race Condition' during checkout inventory deduction?", description: "Use Django's `transaction.atomic()` combined with `select_for_update()` to lock the inventory row, ensuring concurrent checkout requests are processed sequentially." },
-      { id: "ec-3", type: "quiz", title: "Why store JWT access tokens in memory and refresh tokens in HttpOnly cookies?", description: "HttpOnly cookies mitigate Cross-Site Scripting (XSS) attacks because JavaScript cannot access them. In-memory access tokens protect against CSRF attacks." },
-      { id: "ec-4", type: "quiz", title: "What is CORS and why must it be configured in a Django + React setup?", description: "Cross-Origin Resource Sharing prevents browsers from making requests to a different domain/port. You must use `django-cors-headers` to whitelist the React app's URL." },
-      { id: "ec-5", type: "quiz", title: "How do you optimize React Cart State management?", description: "Use React Context API or Redux. Prevent unnecessary re-renders by using `useMemo` for derived data (like cart totals) and keeping the state shape normalized." },
-      { id: "ec-6", type: "quiz", title: "Explain payment idempotency.", description: "Idempotency ensures that making the same payment request multiple times (e.g., due to network drops) only charges the customer once, usually via unique Idempotency Keys." },
-      { id: "ec-7", type: "quiz", title: "Why use TailwindCSS over traditional CSS frameworks in modern React apps?", description: "Tailwind provides utility-first classes, enabling rapid styling without context switching to CSS files, and its build process purges unused CSS for extremely small bundle sizes." },
-      { id: "ec-8", type: "quiz", title: "How do you handle API request authorization in React?", description: "Create an Axios interceptor or a custom `authFetch` wrapper that automatically attaches the `Authorization: Bearer <token>` header to all outgoing requests." },
-      { id: "ec-9", type: "quiz", title: "What is the purpose of `Vite` in modern React development?", description: "Vite is a fast build tool and dev server that leverages native ES modules, providing instant hot module replacement (HMR) and significantly faster startup times than Webpack." },
-      { id: "ec-10", type: "quiz", title: "How do you model an E-Commerce Cart in the database?", description: "Typically requires two models: a `Cart` (linked to a User/Session) and `CartItem` (ForeignKeys to Cart and Product, plus Quantity). This handles many-to-many relationships." },
-      { id: "ec-11", type: "quiz", title: "Why process image uploads asynchronously?", description: "Image resizing and CDN uploading can take seconds, blocking the HTTP response. Offloading to Celery ensures the API responds immediately while processing happens in the background." },
-      { id: "ec-12", type: "quiz", title: "How do you handle soft deletes for products?", description: "Instead of hard deleting a product (which breaks old order history), add an `is_active` boolean field. Filter active products for the store, but keep inactive ones for historical records." },
-      { id: "ec-13", type: "quiz", title: "Explain how to protect against Cart Abandonment.", description: "Store cart data persistently in the database (or Redis) tied to the user session, rather than relying solely on local storage, allowing follow-up email campaigns." },
-      { id: "ec-14", type: "quiz", title: "What is the `useEffect` cleanup function used for?", description: "It prevents memory leaks by canceling active fetch requests, clearing timeouts/intervals, or unsubscribing from event listeners when a React component unmounts." },
-      { id: "ec-15", type: "quiz", title: "How do you implement search functionality efficiently?", description: "For simple searches, use Django's `icontains` filter. For production, integrate full-text search engines like PostgreSQL's `SearchVector` or external services like Elasticsearch/Algolia." },
-      { id: "ec-16", type: "quiz", title: "Why use UUIDs for Order numbers instead of auto-incrementing integers?", description: "Integer IDs expose your business metrics (competitors can guess order volume). UUIDs are unpredictable and non-sequential, providing better security and privacy." },
-      { id: "ec-17", type: "quiz", title: "How do you manage environment-specific variables in React (Vite)?", description: "Define variables in a `.env` file prefixed with `VITE_` (e.g., `VITE_API_BASE_URL`). Access them in code using `import.meta.env.VITE_API_BASE_URL`." },
-      { id: "ec-18", type: "quiz", title: "What is the role of a DRF `ModelViewSet` in this project?", description: "It drastically reduces boilerplate by automatically providing complete CRUD actions (list, create, retrieve, update, destroy) mapped to standard HTTP methods for a model." },
-      { id: "ec-19", type: "quiz", title: "How do you handle JWT Token Expiration in the React frontend?", description: "Implement an Axios interceptor that catches 401 Unauthorized errors. It should pause the original request, call the refresh token endpoint, update the access token, and retry the request." },
-      { id: "ec-20", type: "quiz", title: "Why is database normalization important for an Order schema?", description: "It reduces data redundancy. Storing historical snapshot data (like price at the time of purchase) in an `OrderItem` table prevents past orders from changing if the current product price changes." }
-    ]
+    question: "Which company developed React.js?",
+    type: "multiple_choice",
+    options: [
+      "Google",
+      "Amazon",
+      "Meta (formerly Facebook)",
+      "Microsoft"
+    ],
+    correct_answer: "Meta (formerly Facebook)",
+    correct_index: 2,
+    explanation: "React was created by Jordan Walke, a software engineer at Meta (Facebook). It was first deployed on Facebook's newsfeed in 2011 and on Instagram.com in 2012."
+  },
+  {
+    question: "What is a major problem with traditional DOM manipulation that React solves?",
+    type: "multiple_choice",
+    options: [
+      "It requires a separate backend server.",
+      "Updating the real DOM is slow because it requires a full re-render of the page or complex manual DOM operations.",
+      "It cannot handle CSS animations.",
+      "It only supports mobile devices."
+    ],
+    correct_answer: "Updating the real DOM is slow because it requires a full re-render of the page or complex manual DOM operations.",
+    correct_index: 1,
+    explanation: "In traditional DOM manipulation, even small changes can trigger a complete re-render of the page, leading to performance bottlenecks. React solves this by using a Virtual DOM to minimize direct updates to the actual DOM."
+  },
+  {
+    question: "What is the Virtual DOM in React?",
+    type: "multiple_choice",
+    options: [
+      "A completely new browser engine replacing Chrome's V8.",
+      "A cloud-based database for storing UI state.",
+      "A lightweight copy of the real DOM kept in memory, used to determine the most efficient way to update the actual DOM.",
+      "A CSS framework used for responsive design."
+    ],
+    correct_answer: "A lightweight copy of the real DOM kept in memory, used to determine the most efficient way to update the actual DOM.",
+    correct_index: 2,
+    explanation: "The Virtual DOM is a programming concept where an ideal, or 'virtual', representation of a UI is kept in memory and synced with the 'real' DOM by a library such as ReactDOM. This process is called reconciliation."
+  },
+  {
+    question: "What does JSX stand for and what is its role in React?",
+    type: "multiple_choice",
+    options: [
+      "Java Server Extension, used for backend rendering.",
+      "JavaScript XML, a syntax extension that allows writing HTML-like code within JavaScript.",
+      "JSON Syntax Exchange, used for API communication.",
+      "JavaScript XSS, a security feature."
+    ],
+    correct_answer: "JavaScript XML, a syntax extension that allows writing HTML-like code within JavaScript.",
+    correct_index: 1,
+    explanation: "JSX produces React 'elements'. It describes what the UI should look like. It is not required to use React, but it is highly recommended because it makes the code more readable and easier to write."
+  },
+  {
+    question: "How do you create a React application using the Vite bundler?",
+    type: "multiple_choice",
+    options: [
+      "npm create-react-app my-app",
+      "npx create-react-app my-app",
+      "npm create vite@latest my-app --template react",
+      "npm init react-app my-app"
+    ],
+    correct_answer: "npm create vite@latest my-app --template react",
+    correct_index: 2,
+    explanation: "Vite is a modern, fast build tool. `npm create vite@latest` initializes a new project, and you select the React template. Create React App (CRA) is no longer the recommended approach for new projects."
+  },
+  {
+    question: "In a typical Vite+React project, what is the role of `main.jsx` (or `index.js`)?",
+    type: "multiple_choice",
+    options: [
+      "It is the main CSS file.",
+      "It is the entry point that renders the root React component (`App`) into the HTML DOM.",
+      "It handles all database connections.",
+      "It is a configuration file for Vite."
+    ],
+    correct_answer: "It is the entry point that renders the root React component (`App`) into the HTML DOM.",
+    correct_index: 1,
+    explanation: "`main.jsx` uses `ReactDOM.createRoot` to select the root DOM node (usually a div with id='root' in `index.html`) and renders the top-level React component (like `<App/>`) into it."
+  },
+  {
+    question: "What are React Fragments (`<> ... </>`) used for?",
+    type: "multiple_choice",
+    options: [
+      "To add styling to multiple elements.",
+      "To conditionally render components.",
+      "To group a list of children without adding extra nodes (like a `<div>`) to the real DOM.",
+      "To create a new CSS class."
+    ],
+    correct_answer: "To group a list of children without adding extra nodes (like a `<div>`) to the real DOM.",
+    correct_index: 2,
+    explanation: "A React component can only return a single parent element. Fragments let you group a list of children without adding extra nodes to the DOM, keeping the HTML structure clean."
+  },
+  {
+    question: "What are Props in React?",
+    type: "multiple_choice",
+    options: [
+      "Built-in CSS properties for React components.",
+      "Internal state variables that a component can modify.",
+      "Read-only inputs passed from a parent component to a child component to configure its behavior or output.",
+      "Functions used to fetch data from an API."
+    ],
+    correct_answer: "Read-only inputs passed from a parent component to a child component to configure its behavior or output.",
+    correct_index: 2,
+    explanation: "Props (short for properties) are how components talk to each other. A parent component passes data to a child component as props. Props are immutable within the child component."
+  },
+  {
+    question: "How does data flow in a standard React application?",
+    type: "multiple_choice",
+    options: [
+      "Bottom-up (from child to parent)",
+      "Unidirectional, top-down (from parent to child)",
+      "Bidirectional (parent to child and child to parent simultaneously)",
+      "Randomly, based on component rendering order"
+    ],
+    correct_answer: "Unidirectional, top-down (from parent to child)",
+    correct_index: 1,
+    explanation: "React enforces a unidirectional data flow. State is often lifted up to a common ancestor, which then passes it down to child components via props."
+  },
+  {
+    question: "What is the purpose of the `key` prop when rendering a list of elements in React using `.map()`?",
+    type: "multiple_choice",
+    options: [
+      "To provide a unique CSS class name for styling.",
+      "To help React identify which items have changed, are added, or are removed, optimizing rendering performance.",
+      "To encrypt the data being rendered.",
+      "To define the index of the array element."
+    ],
+    correct_answer: "To help React identify which items have changed, are added, or are removed, optimizing rendering performance.",
+    correct_index: 1,
+    explanation: "Keys give elements a stable identity. React uses keys to match children in the original tree with children in the subsequent tree, making DOM updates efficient."
+  },
+  {
+    question: "What is `useState` in React?",
+    type: "multiple_choice",
+    options: [
+      "A method to fetch data from an external API.",
+      "A hook that allows functional components to have state variables.",
+      "A component lifecycle method.",
+      "A CSS framework for managing UI states."
+    ],
+    correct_answer: "A hook that allows functional components to have state variables.",
+    correct_index: 1,
+    explanation: "`useState` is a React Hook that lets you add a state variable to your component. It returns an array with two values: the current state and a function to update it."
+  },
+  {
+    question: "How does the `useState` setter function behave regarding UI updates?",
+    type: "multiple_choice",
+    options: [
+      "It instantly updates the variable, but the UI updates only on page reload.",
+      "It schedules a state update and triggers a re-render of the component to reflect the new state in the UI.",
+      "It directly modifies the real DOM.",
+      "It updates the state but does not cause a re-render."
+    ],
+    correct_answer: "It schedules a state update and triggers a re-render of the component to reflect the new state in the UI.",
+    correct_index: 1,
+    explanation: "Calling the setter function returned by `useState` tells React that the component's state has changed, which queues a re-render of that component and its children."
+  },
+  {
+    question: "Why might `console.log(stateVariable)` immediately after calling `setStateVariable(newValue)` print the old value?",
+    type: "multiple_choice",
+    options: [
+      "Because `console.log` is broken in React.",
+      "Because state updates in React are asynchronous; the state variable is updated on the next render cycle.",
+      "Because the new value was rejected by React.",
+      "Because you must use `await` before `console.log`."
+    ],
+    correct_answer: "Because state updates in React are asynchronous; the state variable is updated on the next render cycle.",
+    correct_index: 1,
+    explanation: "React batches state updates for performance. The setter function schedules an update, but the value of the state variable in the current execution context remains unchanged until the next render."
+  },
+  {
+    question: "What is 'Two-Way Data Binding' in the context of React forms (Controlled Components)?",
+    type: "multiple_choice",
+    options: [
+      "The input updates the DOM directly without React's knowledge.",
+      "React state dictates the input's `value`, and the input's `onChange` event updates the React state.",
+      "Data flows from the backend to the frontend and vice-versa simultaneously.",
+      "Using two different state variables for one input."
+    ],
+    correct_answer: "React state dictates the input's `value`, and the input's `onChange` event updates the React state.",
+    correct_index: 1,
+    explanation: "In controlled components, the form data is handled by the React component. The input's `value` is tied to a state variable, and an `onChange` handler updates that state, keeping them in sync."
+  },
+  {
+    question: "How do you prevent the default page reload behavior when a form is submitted in React?",
+    type: "multiple_choice",
+    options: [
+      "By returning `false` from the component.",
+      "By calling `event.preventDefault()` inside the `onSubmit` handler.",
+      "By using the `<PreventReload>` tag.",
+      "React automatically prevents default form submissions."
+    ],
+    correct_answer: "By calling `event.preventDefault()` inside the `onSubmit` handler.",
+    correct_index: 1,
+    explanation: "Forms in HTML default to navigating to a new page on submit. In React, you use the standard DOM method `event.preventDefault()` within the event handler to stop this behavior."
+  },
+  {
+    question: "What is the primary use case for the `useEffect` hook?",
+    type: "multiple_choice",
+    options: [
+      "To declare CSS styles for a component.",
+      "To perform side effects in functional components, such as data fetching, subscriptions, or manually changing the DOM.",
+      "To manage complex state logic with multiple sub-values.",
+      "To create reusable UI components."
+    ],
+    correct_answer: "To perform side effects in functional components, such as data fetching, subscriptions, or manually changing the DOM.",
+    correct_index: 1,
+    explanation: "`useEffect` lets you synchronize a component with an external system. It serves the same purpose as `componentDidMount`, `componentDidUpdate`, and `componentWillUnmount` in React class components."
+  },
+  {
+    question: "What does the dependency array `[]` as the second argument in `useEffect` do?",
+    type: "multiple_choice",
+    options: [
+      "It causes the effect to run after every single render.",
+      "It causes the effect to run only once, immediately after the initial render (component mount).",
+      "It prevents the effect from ever running.",
+      "It tells React to run the effect only when the component unmounts."
+    ],
+    correct_answer: "It causes the effect to run only once, immediately after the initial render (component mount).",
+    correct_index: 1,
+    explanation: "An empty dependency array means the effect does not depend on any state or props, so it only needs to execute once when the component mounts."
+  },
+  {
+    question: "If a state variable `count` is included in the `useEffect` dependency array `[count]`, when will the effect run?",
+    type: "multiple_choice",
+    options: [
+      "Only when the component mounts.",
+      "Every time the component re-renders, regardless of what changed.",
+      "After the initial render, and subsequently every time the value of `count` changes.",
+      "Only when the component unmounts."
+    ],
+    correct_answer: "After the initial render, and subsequently every time the value of `count` changes.",
+    correct_index: 2,
+    explanation: "React compares the current value of dependencies with their value on the previous render. If any value in the array has changed (like `count`), the effect is re-run."
+  },
+  {
+    question: "What library is commonly used for performing routing in a React application?",
+    type: "multiple_choice",
+    options: [
+      "react-navigation",
+      "react-router-dom",
+      "express.js",
+      "react-routes"
+    ],
+    correct_answer: "react-router-dom",
+    correct_index: 1,
+    explanation: "`react-router-dom` is the standard routing library for React web applications, enabling navigation between different components without full page reloads, creating a Single Page Application (SPA) experience."
+  },
+  {
+    question: "What is the purpose of the `<BrowserRouter>` component in `react-router-dom`?",
+    type: "multiple_choice",
+    options: [
+      "To open external links in a new browser tab.",
+      "To wrap the application and enable client-side routing using the HTML5 history API.",
+      "To manage HTTP requests to the backend server.",
+      "To render components conditionally based on browser type."
+    ],
+    correct_answer: "To wrap the application and enable client-side routing using the HTML5 history API.",
+    correct_index: 1,
+    explanation: "`BrowserRouter` is a router implementation that uses the HTML5 history API (`pushState`, `replaceState` and the `popstate` event) to keep your UI in sync with the URL."
+  },
+  {
+    question: "In `react-router-dom`, what component should you use to create navigation links instead of the standard HTML `<a>` tag?",
+    type: "multiple_choice",
+    options: [
+      "<Href>",
+      "<Navigate>",
+      "<Link> (or <NavLink>)",
+      "<Route>"
+    ],
+    correct_answer: "<Link> (or <NavLink>)",
+    correct_index: 2,
+    explanation: "Using an `<a>` tag causes a full page reload. The `<Link>` component updates the URL and allows React Router to render the appropriate component client-side, maintaining the SPA behavior."
+  },
+  {
+    question: "How do you define a dynamic route segment (e.g., a specific user ID) in `react-router-dom`?",
+    type: "multiple_choice",
+    options: [
+      "<Route path=\"/user/?id\"/>",
+      "<Route path=\"/user/:id\"/>",
+      "<Route path=\"/user/{id}\"/>",
+      "<Route path=\"/user/[id]\"/>"
+    ],
+    correct_answer: "<Route path=\"/user/:id\"/>",
+    correct_index: 1,
+    explanation: "The colon `:` syntax denotes a dynamic segment in a route path. The value matched by this segment can be accessed inside the component."
+  },
+  {
+    question: "Which hook allows you to access dynamic parameters from the URL in `react-router-dom`?",
+    type: "multiple_choice",
+    options: [
+      "useUrl()",
+      "useParams()",
+      "useRouteMatch()",
+      "useLocation()"
+    ],
+    correct_answer: "useParams()",
+    correct_index: 1,
+    explanation: "`useParams` returns an object of key/value pairs of the dynamic params from the current URL that were matched by the `<Route path>`."
+  },
+  {
+    question: "What does the `useNavigate` hook do?",
+    type: "multiple_choice",
+    options: [
+      "It automatically fetches data for the next route.",
+      "It returns a function that lets you navigate programmatically (e.g., after a form submission or button click).",
+      "It provides information about the current browser's navigation history.",
+      "It renders a navigation bar component."
+    ],
+    correct_answer: "It returns a function that lets you navigate programmatically (e.g., after a form submission or button click).",
+    correct_index: 1,
+    explanation: "`useNavigate` provides a `navigate` function. You can call it with a path (e.g., `navigate('/home')`) or a delta to go back in history (e.g., `navigate(-1)`)."
+  },
+  {
+    question: "What is the Context API used for in React?",
+    type: "multiple_choice",
+    options: [
+      "To manage database connections.",
+      "To replace the need for CSS styling.",
+      "To solve the problem of 'prop drilling' by allowing data to be shared globally or across deeply nested component trees without passing props manually at every level.",
+      "To handle asynchronous API requests."
+    ],
+    correct_answer: "To solve the problem of 'prop drilling' by allowing data to be shared globally or across deeply nested component trees without passing props manually at every level.",
+    correct_index: 2,
+    explanation: "Context provides a way to pass data through the component tree without having to pass props down manually at every level. It is ideal for global data like themes, authenticated user info, or preferred language."
+  },
+  {
+    question: "What are the three main steps to use the Context API?",
+    type: "multiple_choice",
+    options: [
+      "fetch(), store(), display()",
+      "createContext(), Context.Provider, useContext()",
+      "useState(), useEffect(), useReducer()",
+      "ComponentDidMount, ComponentDidUpdate, ComponentWillUnmount"
+    ],
+    correct_answer: "createContext(), Context.Provider, useContext()",
+    correct_index: 1,
+    explanation: "First, you create the context using `createContext()`. Second, you wrap the parts of your app that need the data with a `<Context.Provider value=\"{...}\">`. Third, you consume the data in child components using the `useContext(Context)` hook."
+  },
+  {
+    question: "What is 'Prop Drilling'?",
+    type: "multiple_choice",
+    options: [
+      "A security vulnerability where malicious code is passed through props.",
+      "A performance optimization technique for rendering lists.",
+      "The process of passing data from a parent component down to a deeply nested child component through multiple intermediate components that don't need the data themselves.",
+      "The automatic extraction of data from API responses."
+    ],
+    correct_answer: "The process of passing data from a parent component down to a deeply nested child component through multiple intermediate components that don't need the data themselves.",
+    correct_index: 2,
+    explanation: "Prop drilling is the term used when you pass props down through several layers of components just to get data to a deeply nested component. Context API or state management libraries (like Redux) are used to avoid this."
+  },
+  {
+    question: "When fetching data from an API inside `useEffect`, why is it common practice to use an asynchronous function?",
+    type: "multiple_choice",
+    options: [
+      "Because `useEffect` itself cannot be an `async` function directly, so you define an `async` function inside it and call it.",
+      "Because API calls are synchronous by nature.",
+      "Because `async` functions are required by Vite.",
+      "Because `fetch` only works inside `async` functions."
+    ],
+    correct_answer: "Because `useEffect` itself cannot be an `async` function directly, so you define an `async` function inside it and call it.",
+    correct_index: 0,
+    explanation: "The `useEffect` hook expects its callback to return either nothing or a cleanup function. An `async` function always returns a Promise. Therefore, you must define an `async` function *inside* the `useEffect` callback and invoke it there."
+  },
+  {
+    question: "In `react-router-dom`, what is the `<Outlet/>` component used for?",
+    type: "multiple_choice",
+    options: [
+      "To render an external website inside an iframe.",
+      "To define where child routes (nested routes) should be rendered within a parent layout component.",
+      "To export data to local storage.",
+      "To catch all undefined routes (404 page)."
+    ],
+    correct_answer: "To define where child routes (nested routes) should be rendered within a parent layout component.",
+    correct_index: 1,
+    explanation: "When you have nested routes, the parent route component acts as a layout. The `<Outlet/>` acts as a placeholder telling React Router where to render the matching child route's component."
   }
 ];
 
-async function seedDjangoMasterclasses() {
+// Enrich each question so it works across all quiz modes
+const REACT_PRACTICE_QUESTIONS = REACT_PRACTICE_QUESTIONS_RAW.map((q) => {
+  const letters = ["A", "B", "C", "D"];
+  const correctLetter = letters[q.correct_index] || "A";
+  const enrichedOptions = q.options.map((opt, i) => {
+    return {
+      text: opt,
+      isCorrect: i === q.correct_index
+    };
+  });
+
+  return {
+    ...q,
+    options: enrichedOptions,
+    correctAnswer: correctLetter,
+    answer: correctLetter
+  };
+});
+
+const REACT_LECTURE = {
+  slug: 'reactjs-full-course-sheryians',
+  title: 'React.js Complete Masterclass: UI, Hooks & Routing',
+  topic_order: 1,
+  duration_minutes: 676, // ~11h 16m
+  video_url: 'https://youtu.be/3LRZRSIh_KE',
+  video_title: 'ReactJS Full Course | ReactJS - Learn Everything | Sheryians Coding School',
+  creator_name: 'Sheryians Coding School',
+  creator_channel_url: 'https://www.youtube.com/@SheryiansCodingSchool',
+  short_description: 'An exhaustive 11-hour deep dive into React.js. Covers Virtual DOM, component architecture, hooks (useState, useEffect, useContext), API integration, and React Router DOM.',
+  summary_markdown: `> **Masterclass Overview:** This 11-hour comprehensive tutorial is designed to take you from React basics to an industry-ready Frontend Developer. It covers the core philosophy of React, state management, routing, and real-world project building.
+
+### 📌 Core Technical Highlights
+- **React Fundamentals:** Understanding the Virtual DOM vs. Real DOM, JSX syntax, and Vite initialization.
+- **Component Architecture:** Building reusable UI elements, atomic design vs. feature-based structures, and Prop Drilling.
+- **State Management (Hooks):** Deep dive into \`useState\`, handling two-way data binding for forms, and managing object/array state immutability.
+- **Side Effects & APIs:** Mastering \`useEffect\` for side-effects, \`useRef\` for DOM manipulation, and fetching data using \`axios\`.
+- **Advanced Routing:** Implementing SPAs with \`react-router-dom\`, nested routes, dynamic routing (\`useParams\`), and programmatic navigation (\`useNavigate\`).
+- **Global State:** Solving prop drilling by implementing the Context API (\`createContext\`, \`useContext\`).
+
+*Practice your understanding of React.js architecture by completing the 30-question verified quiz below.*`
+};
+
+async function seedReactTrackAndReorderPath() {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    // Schema guard: Ensure optional/new columns exist so queries don't fail
+    // 0. Ensure schema compatibility
     await client.query(`
       ALTER TABLE tracks ADD COLUMN IF NOT EXISTS duration_hours INTEGER DEFAULT 0;
-      ALTER TABLE topics ADD COLUMN IF NOT EXISTS video_url TEXT;
-      ALTER TABLE topics ADD COLUMN IF NOT EXISTS video_title TEXT;
-      ALTER TABLE topics ALTER COLUMN name DROP NOT NULL;
+      ALTER TABLE tracks ADD COLUMN IF NOT EXISTS total_topics INTEGER DEFAULT 0;
+      ALTER TABLE tracks ADD COLUMN IF NOT EXISTS evaluation_type VARCHAR(50);
+      ALTER TABLE tracks ADD COLUMN IF NOT EXISTS short_name VARCHAR(100);
+      ALTER TABLE tracks ADD COLUMN IF NOT EXISTS display_name VARCHAR(100);
+      ALTER TABLE tracks ADD COLUMN IF NOT EXISTS tab_name VARCHAR(100);
     `);
 
-    const resCheck = await client.query(`
-      SELECT 1 FROM information_schema.tables WHERE table_name = 'resources';
+    // 1. Detect Path Join Table
+    const tableCheck = await client.query(`
+      SELECT table_name FROM information_schema.tables 
+      WHERE table_schema = 'public' AND table_name IN ('path_tracks', 'preparation_path_tracks');
     `);
-    if (resCheck.rows.length > 0) {
-      await client.query(`
-        ALTER TABLE resources ADD COLUMN IF NOT EXISTS creator_name VARCHAR(255);
-        ALTER TABLE resources ADD COLUMN IF NOT EXISTS creator_channel_url TEXT;
-      `);
-    }
+    const joinTable = tableCheck.rows.map(r => r.table_name).includes('preparation_path_tracks') 
+      ? 'preparation_path_tracks' 
+      : 'path_tracks';
 
-    // 1. Locate the Track
-    const trackRes = await client.query(`SELECT id FROM tracks WHERE slug = 'python-backend-development';`);
+    // 2. Identify React path ID
+    const pathRes = await client.query(`
+      SELECT id, name FROM preparation_paths WHERE name ILIKE '%React%' OR slug ILIKE '%react%' LIMIT 1;
+    `);
+    if (pathRes.rows.length === 0) throw new Error("React.js path not found.");
+    const pathId = pathRes.rows[0].id;
+    console.log(`Identified Path: ${pathRes.rows[0].name} (ID: ${pathId})`);
+
+    // 3. Create or Fetch the React.js Track
+    let trackRes = await client.query(`SELECT id FROM tracks WHERE slug = 'reactjs-mastery';`);
+    let reactTrackId;
     if (trackRes.rows.length === 0) {
-      throw new Error("Track 'python-backend-development' not found! Make sure you ran the previous roadmap script.");
-    }
-    const trackId = trackRes.rows[0].id;
-    console.log(`Found 'Development' track (ID: ${trackId})`);
-
-    let cumulativeMinutes = 0;
-
-    // 2. Clear old mappings to prevent duplication
-    await client.query(`DELETE FROM track_topics WHERE track_id = $1;`, [trackId]);
-
-    // 3. Insert / Update Topics
-    for (const [index, data] of LECTURES.entries()) {
-      let topicId;
-      const cleanVideoUrl = cleanUrl(data.video_url);
-      const cleanChannelUrl = cleanUrl(data.creator_channel_url);
-
-      const checkTopic = await client.query(`SELECT id FROM topics WHERE slug = $1;`, [data.slug]);
-      
-      const videoLinks = JSON.stringify([
-        {
-          title: data.video_title,
-          url: cleanVideoUrl,
-          duration_minutes: data.duration_minutes,
-          creator_name: data.creator_name,
-          creator_channel_url: cleanChannelUrl
-        }
-      ]);
-
-      const insertParams = [
-        data.title,              // $1 name
-        data.title,              // $2 title
-        data.slug,               // $3 slug
-        data.topic_order,        // $4 topic_order
-        data.module_name,        // $5 module_name
-        data.duration_minutes,   // $6 duration_minutes
-        data.duration_minutes,   // $7 estimated_minutes
-        cleanVideoUrl,           // $8 video_url
-        data.video_title,        // $9 video_title
-        data.short_description,  // $10 short_description
-        data.short_description,  // $11 description
-        data.summary_markdown,   // $12 summary_markdown
-        data.summary_markdown,   // $13 theory_summary
-        JSON.stringify(data.practice_items), // $14 practice_items
-        videoLinks,              // $15 video_links
-        data.creator_name,       // $16 creator_name
-        cleanChannelUrl          // $17 creator_channel_url
-      ];
-
-      // Insert or Update Topic
-      if (checkTopic.rows.length === 0) {
-        const ins = await client.query(`
-          INSERT INTO topics (
-            name, title, slug, topic_order, module_name, 
-            duration_minutes, estimated_minutes, video_url, video_title, 
-            short_description, description, summary_markdown, theory_summary, 
-            practice_items, video_links, creator_name, creator_channel_url
-          )
-          VALUES (
-            $1, $2, $3, $4, $5, 
-            $6, $7, $8, $9, 
-            $10, $11, $12, $13, 
-            $14::jsonb, $15::jsonb, $16, $17
-          )
-          RETURNING id;
-        `, insertParams);
-        topicId = ins.rows[0].id;
-      } else {
-        topicId = checkTopic.rows[0].id;
-        await client.query(`
-          UPDATE topics SET 
-            name = $1,
-            title = $2,
-            topic_order = $4,
-            module_name = $5,
-            duration_minutes = $6,
-            estimated_minutes = $7,
-            video_url = $8,
-            video_title = $9,
-            short_description = $10,
-            description = $11,
-            summary_markdown = $12,
-            theory_summary = $13,
-            practice_items = $14::jsonb,
-            video_links = $15::jsonb,
-            creator_name = $16,
-            creator_channel_url = $17
-          WHERE id = $18;
-        `, [...insertParams, topicId]);
-      }
-      console.log(`Saved Topic [${topicId}]: ${data.title}`);
-
-      // Map to Track
-      await client.query(`INSERT INTO track_topics (track_id, topic_id, topic_order) VALUES ($1, $2, $3);`, [trackId, topicId, index + 1]);
-      cumulativeMinutes += data.duration_minutes;
-
-      // Handle Resources Table Sync (if exists)
-      if (resCheck.rows.length > 0) {
-        const existRes = await client.query(`SELECT id FROM resources WHERE topic_id = $1 AND resource_type = 'video';`, [topicId]);
-        if (existRes.rows.length === 0) {
-          await client.query(`
-            INSERT INTO resources (topic_id, title, url, resource_type, estimated_minutes, creator_name, creator_channel_url)
-            VALUES ($1, $2, $3, 'video', $4, $5, $6);
-          `, [topicId, data.video_title, cleanVideoUrl, data.duration_minutes, data.creator_name, cleanChannelUrl]);
-        } else {
-          await client.query(`
-            UPDATE resources SET title=$1, url=$2, estimated_minutes=$3, creator_name=$4, creator_channel_url=$5 WHERE topic_id = $6 AND resource_type = 'video';
-          `, [data.video_title, cleanVideoUrl, data.duration_minutes, data.creator_name, cleanChannelUrl, topicId]);
-        }
-      }
-    }
-
-    // 4. Update Track Metadata
-    const hours = Math.ceil(cumulativeMinutes / 60);
-    await client.query(`
-      UPDATE tracks SET total_topics = 2, duration_hours = $1 WHERE id = $2;
-    `, [hours, trackId]);
-
-    // 5. Update Python Backend Developer Path total_topics if path exists
-    const pathCheck = await client.query(`
-      SELECT id FROM preparation_paths 
-      WHERE slug = 'python-backend-developer' OR name = 'Python Backend Developer' OR id = 6;
-    `);
-    if (pathCheck.rows.length > 0) {
-      const pId = pathCheck.rows[0].id;
-      // Count total topics linked across all tracks in path
-      const countRes = await client.query(`
-        SELECT COUNT(DISTINCT tt.topic_id)::int AS count
-        FROM path_tracks pt
-        JOIN track_topics tt ON pt.track_id = tt.track_id
-        WHERE pt.path_id = $1;
-      `, [pId]);
-      const totalTopicsCount = countRes.rows[0].count;
+      const ins = await client.query(`
+        INSERT INTO tracks (name, title, slug, total_topics, level, icon, evaluation_type, short_name, display_name, tab_name)
+        VALUES ('React.js Engineering', 'React.js Engineering', 'reactjs-mastery', 1, 'Advanced', 'code', 'verified-quiz', 'React.js', 'React.js Engineering', 'React.js')
+        RETURNING id;
+      `);
+      reactTrackId = ins.rows[0].id;
+      console.log(`Created new Track 'React.js Engineering' (ID: ${reactTrackId})`);
+    } else {
+      reactTrackId = trackRes.rows[0].id;
       await client.query(`
-        UPDATE preparation_paths SET total_topics = $1 WHERE id = $2;
-      `, [totalTopicsCount, pId]);
-      console.log(`Updated Path [${pId}] total_topics to ${totalTopicsCount}.`);
+        UPDATE tracks 
+        SET name = 'React.js Engineering',
+            title = 'React.js Engineering',
+            short_name = 'React.js',
+            display_name = 'React.js Engineering',
+            tab_name = 'React.js',
+            evaluation_type = 'verified-quiz',
+            icon = 'code',
+            level = 'Advanced'
+        WHERE id = $1;
+      `, [reactTrackId]);
+      await client.query(`DELETE FROM track_topics WHERE track_id = $1;`, [reactTrackId]);
+      console.log(`Found existing React.js Track (ID: ${reactTrackId}), updated and cleared old topics.`);
     }
+
+    // 4. Upsert the Topic & Sync the 30 Questions
+    const cleanVideoUrl = cleanUrl(REACT_LECTURE.video_url);
+    const cleanChannelUrl = cleanUrl(REACT_LECTURE.creator_channel_url);
+    const creatorName = REACT_LECTURE.creator_name;
+
+    const videoLinks = JSON.stringify([
+      {
+        title: REACT_LECTURE.video_title,
+        url: cleanVideoUrl,
+        duration_minutes: REACT_LECTURE.duration_minutes,
+        creator_name: creatorName,
+        creator_channel_url: cleanChannelUrl
+      }
+    ]);
+
+    const checkTopic = await client.query(`SELECT id FROM topics WHERE slug = $1;`, [REACT_LECTURE.slug]);
+
+    const insertParams = [
+      REACT_LECTURE.title,              // $1 name
+      REACT_LECTURE.title,              // $2 title
+      REACT_LECTURE.slug,               // $3 slug
+      REACT_LECTURE.topic_order,        // $4 topic_order
+      'Frontend Framework',             // $5 module_name
+      REACT_LECTURE.duration_minutes,   // $6 duration_minutes
+      REACT_LECTURE.duration_minutes,   // $7 estimated_minutes
+      cleanVideoUrl,                    // $8 video_url
+      REACT_LECTURE.video_title,        // $9 video_title
+      REACT_LECTURE.short_description,  // $10 short_description
+      REACT_LECTURE.short_description,  // $11 description
+      REACT_LECTURE.summary_markdown,   // $12 summary_markdown
+      REACT_LECTURE.summary_markdown,   // $13 theory_summary
+      JSON.stringify(REACT_PRACTICE_QUESTIONS), // $14 practice_items
+      videoLinks,                       // $15 video_links
+      creatorName,                      // $16 creator_name
+      cleanChannelUrl                   // $17 creator_channel_url
+    ];
+
+    let topicId;
+    if (checkTopic.rows.length === 0) {
+      const ins = await client.query(`
+        INSERT INTO topics (
+          name, title, slug, topic_order, module_name, 
+          duration_minutes, estimated_minutes, video_url, video_title, 
+          short_description, description, summary_markdown, theory_summary, 
+          practice_items, video_links, creator_name, creator_channel_url
+        )
+        VALUES (
+          $1, $2, $3, $4, $5, 
+          $6, $7, $8, $9, 
+          $10, $11, $12, $13, 
+          $14::jsonb, $15::jsonb, $16, $17
+        )
+        RETURNING id;
+      `, insertParams);
+      topicId = ins.rows[0].id;
+      console.log(`Inserted new Topic '${REACT_LECTURE.title}' (ID: ${topicId})`);
+    } else {
+      topicId = checkTopic.rows[0].id;
+      await client.query(`
+        UPDATE topics SET 
+          name = $1,
+          title = $2,
+          slug = $3,
+          topic_order = $4,
+          module_name = $5,
+          duration_minutes = $6,
+          estimated_minutes = $7,
+          video_url = $8,
+          video_title = $9,
+          short_description = $10,
+          description = $11,
+          summary_markdown = $12,
+          theory_summary = $13,
+          practice_items = $14::jsonb,
+          video_links = $15::jsonb,
+          creator_name = $16,
+          creator_channel_url = $17
+        WHERE id = $18;
+      `, [...insertParams, topicId]);
+      console.log(`Updated existing Topic (ID: ${topicId}) with 30 questions.`);
+    }
+
+    await client.query(`INSERT INTO track_topics (track_id, topic_id, topic_order) VALUES ($1, $2, 1);`, [reactTrackId, topicId]);
+
+    // 5. Update Resources Mapping
+    const resCheck = await client.query(`SELECT 1 FROM information_schema.tables WHERE table_name = 'resources';`);
+    if (resCheck.rows.length > 0) {
+      const existRes = await client.query(`SELECT id FROM resources WHERE topic_id = $1 AND resource_type = 'video';`, [topicId]);
+      if (existRes.rows.length === 0) {
+        await client.query(`
+          INSERT INTO resources (topic_id, title, url, resource_type, estimated_minutes, creator_name, creator_channel_url)
+          VALUES ($1, $2, $3, 'video', $4, $5, $6);
+        `, [topicId, REACT_LECTURE.video_title, cleanVideoUrl, REACT_LECTURE.duration_minutes, creatorName, cleanChannelUrl]);
+      } else {
+        await client.query(`
+          UPDATE resources SET title=$1, url=$2, estimated_minutes=$3, creator_name=$4, creator_channel_url=$5 
+          WHERE topic_id = $6 AND resource_type = 'video';
+        `, [REACT_LECTURE.video_title, cleanVideoUrl, REACT_LECTURE.duration_minutes, creatorName, cleanChannelUrl, topicId]);
+      }
+    }
+
+    // 6. Update Track Overall Duration
+    const hours = Math.ceil(REACT_LECTURE.duration_minutes / 60);
+    await client.query(`UPDATE tracks SET total_topics = 1, duration_hours = $1 WHERE id = $2;`, [hours, reactTrackId]);
+
+    // -------------------------------------------------------------------------
+    // 7. COMPREHENSIVE PATH REORDERING
+    // Target Order: 1. HTML, 2. CSS3, 3. JS, 4. TS, 5. React, 6. Tailwind, 7. Version Control
+    // -------------------------------------------------------------------------
+
+    const findTrackId = async (slugPattern) => {
+      const res = await client.query(`
+        SELECT id, slug, COALESCE(title, name) as title 
+        FROM tracks 
+        WHERE slug ILIKE $1 
+        ORDER BY id ASC LIMIT 1;
+      `, [`%${slugPattern}%`]);
+      return res.rows.length > 0 ? res.rows[0].id : null;
+    };
+
+    const htmlId     = await findTrackId('html-foundations');
+    const cssId      = await findTrackId('css-architecture');
+    const jsId       = await findTrackId('javascript-mastery');
+    const tsId       = await findTrackId('typescript-architecture');
+    const reactId    = reactTrackId;
+    const tailwindId = await findTrackId('tailwind-css-architecture');
+    const vcId       = await findTrackId('version-control');
+
+    console.log(`Resolved Track IDs: HTML=${htmlId}, CSS=${cssId}, JS=${jsId}, TS=${tsId}, React=${reactId}, Tailwind=${tailwindId}, VC=${vcId}`);
+
+    // Wipe existing bindings for this path
+    await client.query(`DELETE FROM ${joinTable} WHERE path_id = $1;`, [pathId]);
+
+    const targetOrder = [
+      { id: htmlId, order: 1, label: 'HTML5 Foundations' },
+      { id: cssId, order: 2, label: 'CSS3' },
+      { id: jsId, order: 3, label: 'JavaScript' },
+      { id: tsId, order: 4, label: 'TypeScript Engineering' },
+      { id: reactId, order: 5, label: 'React.js Engineering' },
+      { id: tailwindId, order: 6, label: 'Tailwind CSS' },
+      { id: vcId, order: 7, label: 'Version Control' }
+    ].filter(item => item.id !== null);
+
+    // Re-insert with strict, guaranteed horizontal order
+    for (const item of targetOrder) {
+      await client.query(`
+        INSERT INTO ${joinTable} (path_id, track_id, track_order)
+        VALUES ($1, $2, $3);
+      `, [pathId, item.id, item.order]);
+      console.log(`Placed [Order ${item.order}]: ${item.label} (ID: ${item.id})`);
+    }
+
+    // 8. Re-Calculate Path Totals
+    const sumRes = await client.query(`
+      SELECT COALESCE(SUM(t.total_topics), 0)::int AS total_topics, COUNT(pt.track_id)::int AS total_tracks
+      FROM ${joinTable} pt JOIN tracks t ON pt.track_id = t.id WHERE pt.path_id = $1;
+    `, [pathId]);
+
+    await client.query(`
+      UPDATE preparation_paths SET total_tracks = $1, total_topics = $2 WHERE id = $3;
+    `, [sumRes.rows[0].total_tracks, sumRes.rows[0].total_topics, pathId]);
 
     await client.query('COMMIT');
-    console.log(`\nSuccessfully seeded Django Development track! Inserted 70 detailed QA placement items and updated hours to ~${hours}h.`);
+    console.log(`\nSuccessfully seeded React.js track and rebuilt path order!`);
+    console.log(`Horizontal Order is now: HTML5 -> CSS3 -> JavaScript -> TypeScript -> React.js -> Tailwind -> Version Control`);
+
+    // Verification output
+    const verify = await client.query(`
+      SELECT pt.track_order, t.id AS track_id, COALESCE(t.title, t.name) AS track_title, t.slug, t.total_topics, t.duration_hours, t.evaluation_type
+      FROM ${joinTable} pt
+      JOIN tracks t ON pt.track_id = t.id
+      WHERE pt.path_id = $1
+      ORDER BY pt.track_order ASC;
+    `, [pathId]);
+    console.table(verify.rows);
 
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error("Migration Error:", err);
+    console.error('Migration failed:', err);
+    process.exit(1);
   } finally {
     client.release();
     process.exit(0);
   }
 }
 
-seedDjangoMasterclasses();
+seedReactTrackAndReorderPath();

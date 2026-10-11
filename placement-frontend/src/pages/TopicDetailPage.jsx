@@ -327,6 +327,12 @@ const RenderMcqQuestionText = ({ text }) => {
 };
 
 const getOptionLetter = (opt, idx) => {
+  if (typeof opt === "object" && opt !== null) {
+    if (opt.letter) return opt.letter;
+    if (typeof opt.text === "string" && /^[A-D]\)/.test(opt.text.trim())) {
+      return opt.text.trim().charAt(0);
+    }
+  }
   if (typeof opt === "string" && /^[A-D]\)/.test(opt.trim())) {
     return opt.trim().charAt(0);
   }
@@ -334,10 +340,35 @@ const getOptionLetter = (opt, idx) => {
 };
 
 const getOptionText = (opt) => {
+  if (typeof opt === "object" && opt !== null) {
+    return opt.text || opt.label || opt.title || JSON.stringify(opt);
+  }
   if (typeof opt === "string" && /^[A-D]\)\s*/.test(opt.trim())) {
     return opt.trim().replace(/^[A-D]\)\s*/, "");
   }
-  return opt;
+  return opt != null ? String(opt) : "";
+};
+
+const getCorrectAnswerLetter = (q) => {
+  if (q.correctAnswer) return q.correctAnswer;
+  if (typeof q.correct_index === "number") {
+    return ["A", "B", "C", "D"][q.correct_index] || String.fromCharCode(65 + q.correct_index);
+  }
+  if (Array.isArray(q.options)) {
+    const idx = q.options.findIndex((opt) => {
+      if (typeof opt === "object" && opt !== null) {
+        return Boolean(opt.isCorrect || opt.correct);
+      }
+      if (typeof opt === "string" && q.correct_answer) {
+        return opt.trim() === q.correct_answer.trim();
+      }
+      return false;
+    });
+    if (idx !== -1) {
+      return ["A", "B", "C", "D"][idx] || String.fromCharCode(65 + idx);
+    }
+  }
+  return q.answer || "";
 };
 
 export const TopicDetailPage = () => {
@@ -1345,7 +1376,8 @@ export const TopicDetailPage = () => {
 
                 mcqQuestions.forEach((q, idx) => {
                   const userAns = selectedAnswers[q.id] || selectedAnswers[idx];
-                  const isCorrect = userAns === q.correctAnswer;
+                  const correctAns = getCorrectAnswerLetter(q);
+                  const isCorrect = userAns === correctAns;
                   const cat = (q.category || "").toLowerCase();
 
                   if (cat.includes("theory")) {
@@ -1660,7 +1692,9 @@ export const TopicDetailPage = () => {
                                         {optLetter}
                                       </div>
                                       <span className="text-xs sm:text-sm font-medium leading-relaxed">
-                                        {optText}
+                                        {typeof optText === "object" && optText !== null
+                                          ? optText.text || optText.label || optText.title || JSON.stringify(optText)
+                                          : String(optText)}
                                       </span>
                                     </div>
                                   );
@@ -1815,7 +1849,8 @@ export const TopicDetailPage = () => {
                           {mcqQuestions.map((q, idx) => {
                             const userAns = selectedAnswers[q.id] || selectedAnswers[idx];
                             const isExplanationRevealed = isTestSubmitted || mcqRevealedExplanations[q.id];
-                            const isUserCorrect = userAns === q.correctAnswer;
+                            const correctAns = getCorrectAnswerLetter(q);
+                            const isUserCorrect = userAns === correctAns;
 
                             return (
                               <div
@@ -1907,7 +1942,10 @@ export const TopicDetailPage = () => {
                                     const optLetter = getOptionLetter(opt, optIdx);
                                     const optText = getOptionText(opt);
                                     const isSelected = userAns === optLetter;
-                                    const isCorrect = optLetter === q.correctAnswer;
+                                    const correctAns = getCorrectAnswerLetter(q);
+                                    const isCorrect = (typeof opt === "object" && opt !== null && opt.isCorrect !== undefined)
+                                      ? Boolean(opt.isCorrect)
+                                      : optLetter === correctAns;
 
                                     let optClass = "bg-background/60 border-border-subtle hover:border-brand-200 hover:bg-background";
                                     let badge = null;
@@ -1961,7 +1999,11 @@ export const TopicDetailPage = () => {
                                             }`}>
                                             {optLetter}
                                           </div>
-                                          <span className="leading-relaxed">{optText}</span>
+                                          <span className="leading-relaxed">
+                                            {typeof optText === "object" && optText !== null
+                                              ? optText.text || optText.label || optText.title || JSON.stringify(optText)
+                                              : String(optText)}
+                                          </span>
                                         </div>
                                         {badge}
                                       </div>
@@ -1974,7 +2016,7 @@ export const TopicDetailPage = () => {
                                   <div className="mt-4 p-4 rounded-2xl bg-surface border border-emerald-200/80 text-xs sm:text-sm text-secondary-text leading-relaxed shadow-sm">
                                     <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 uppercase tracking-wider mb-1.5">
                                       <Sparkles className="h-3.5 w-3.5" />
-                                      <span>Option {q.correctAnswer} — Technical Analysis & Concept Reference:</span>
+                                      <span>Option {getCorrectAnswerLetter(q) || q.correctAnswer} — Technical Analysis & Concept Reference:</span>
                                     </div>
                                     <p className="text-primary-text leading-relaxed">{q.explanation}</p>
                                   </div>
@@ -2102,7 +2144,9 @@ export const TopicDetailPage = () => {
                                         : "text-secondary-text"
                                         }`}
                                     >
-                                      {optText}
+                                      {typeof optText === "object" && optText !== null
+                                        ? optText.text || optText.label || optText.title || JSON.stringify(optText)
+                                        : String(optText)}
                                     </span>
                                   </div>
                                 );
@@ -2337,7 +2381,11 @@ export const TopicDetailPage = () => {
                                           <span className="font-bold text-xs shrink-0">
                                             {optionLetters[optIdx]}.
                                           </span>
-                                          <span>{opt}</span>
+                                          <span>
+                                            {typeof opt === "object" && opt !== null
+                                              ? opt.text || opt.label || opt.title || JSON.stringify(opt)
+                                              : String(opt)}
+                                          </span>
                                         </div>
                                         {badge}
                                       </div>

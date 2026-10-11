@@ -25,6 +25,7 @@ import {
   XCircle,
   Zap,
   ShieldCheck,
+  Palette,
 } from "lucide-react";
 
 // Track theme mapping helper for dynamic modular rendering
@@ -158,10 +159,77 @@ const getTrackTheme = (track, index = 0) => {
     };
   }
 
+  // HTML5 Foundations
+  if (slug.includes("html") || name.includes("html")) {
+    return {
+      icon: Code,
+      color: "from-orange-500 via-amber-600 to-red-600",
+      bgLight: "bg-orange-50",
+      borderLight: "border-orange-200",
+      textLight: "text-orange-700",
+      accentBar: "bg-orange-600",
+      badgeText: "Web Foundations",
+    };
+  }
+
+  // TypeScript Engineering
+  if (slug.includes("typescript") || name.includes("typescript")) {
+    return {
+      icon: Code,
+      color: "from-blue-600 via-indigo-600 to-sky-700",
+      bgLight: "bg-blue-50",
+      borderLight: "border-blue-200",
+      textLight: "text-blue-700",
+      accentBar: "bg-blue-600",
+      badgeText: "Type Systems & Architecture",
+    };
+  }
+
+  // React.js Engineering
+  if (slug.includes("react") || name.includes("react")) {
+    return {
+      icon: Code,
+      color: "from-cyan-500 via-sky-600 to-blue-700",
+      bgLight: "bg-cyan-50",
+      borderLight: "border-cyan-200",
+      textLight: "text-cyan-800",
+      accentBar: "bg-cyan-500",
+      badgeText: "Component Architecture",
+    };
+  }
+
+  // Tailwind CSS
+  if (slug.includes("tailwind") || name.includes("tailwind")) {
+    return {
+      icon: Palette,
+      color: "from-teal-500 via-cyan-600 to-sky-700",
+      bgLight: "bg-teal-50",
+      borderLight: "border-teal-200",
+      textLight: "text-teal-700",
+      accentBar: "bg-teal-600",
+      badgeText: "Utility Styling",
+    };
+  }
+
+  // CSS3 & UI Engineering
+  if (slug.includes("css") || name.includes("css")) {
+    return {
+      icon: Layers,
+      color: "from-sky-500 via-blue-600 to-indigo-700",
+      bgLight: "bg-sky-50",
+      borderLight: "border-sky-200",
+      textLight: "text-sky-700",
+      accentBar: "bg-sky-600",
+      badgeText: "Web Foundations",
+    };
+  }
+
   // Core CS Fundamentals
   if (
     slug.includes("computer-science") ||
-    slug.includes("cs") ||
+    slug === "core-cs" ||
+    slug.startsWith("cs-") ||
+    (slug.includes("cs") && !slug.includes("css")) ||
     name.includes("computer science")
   ) {
     return {
@@ -244,7 +312,28 @@ const getTrackTabLabel = (track) => {
   if (slug.includes("system-design") || name.includes("system design") || slug.includes("deployment")) {
     return "System Design";
   }
-  if (slug.includes("computer-science") || slug.includes("cs") || name.includes("computer science")) {
+  if (slug.includes("typescript") || name.includes("typescript")) {
+    return "TypeScript";
+  }
+  if (slug.includes("react") || name.includes("react")) {
+    return "React.js";
+  }
+  if (slug.includes("html") || name.includes("html")) {
+    return "HTML5";
+  }
+  if (slug.includes("tailwind") || name.includes("tailwind")) {
+    return "Tailwind CSS";
+  }
+  if (slug.includes("css") || name.includes("css")) {
+    return "CSS3";
+  }
+  if (
+    slug.includes("computer-science") ||
+    slug === "core-cs" ||
+    slug.startsWith("cs-") ||
+    (slug.includes("cs") && !slug.includes("css")) ||
+    name.includes("computer science")
+  ) {
     return "Core CS";
   }
   if (slug.includes("aptitude") || name.includes("aptitude") || name.includes("reasoning")) {
