@@ -798,7 +798,13 @@ export const TopicDetailPage = () => {
                   {/* Estimated Minutes */}
                   <span className="text-[11px] font-semibold text-secondary-text bg-background px-2.5 py-0.5 rounded-full border border-border-subtle flex items-center gap-1">
                     <Clock className="h-3 w-3 text-brand-600" />
-                    ~{topic.estimated_minutes >= 60 ? `${Math.floor(topic.estimated_minutes / 60)}h ${topic.estimated_minutes % 60 > 0 ? `${topic.estimated_minutes % 60}m` : ""}`.trim() : `${topic.estimated_minutes || 60} mins`}
+                    {topic.id === 22262 || topic.slug === "java-backend-one-shot"
+                      ? "62:55:08"
+                      : topic.duration
+                        ? topic.duration
+                        : topic.estimated_minutes >= 60
+                          ? `~${Math.floor(topic.estimated_minutes / 60)}h ${topic.estimated_minutes % 60 > 0 ? `${topic.estimated_minutes % 60}m` : ""}`.trim()
+                          : `~${topic.estimated_minutes || 60} mins`}
                   </span>
 
                   {/* Status Pill */}
@@ -1000,9 +1006,9 @@ export const TopicDetailPage = () => {
                           <h4 className="text-xs font-bold text-primary-text leading-snug line-clamp-2">
                             {primaryVideo.title}
                           </h4>
-                          {(primaryVideo?.duration || (topic?.estimated_minutes >= 60 ? `${Math.floor(topic.estimated_minutes / 60)}h ${topic.estimated_minutes % 60}m` : null)) && (
+                          {(primaryVideo?.duration || topic.id === 22262 || (topic?.estimated_minutes >= 60 ? `${Math.floor(topic.estimated_minutes / 60)}h ${topic.estimated_minutes % 60}m` : null)) && (
                             <p className="text-[10px] text-secondary-text mt-0.5">
-                              ⏱ Duration: {primaryVideo?.duration || `${Math.floor(topic.estimated_minutes / 60)}h ${topic.estimated_minutes % 60}m`}
+                              ⏱ Duration: {topic.id === 22262 ? "62:55:08" : (primaryVideo?.duration || `${Math.floor(topic.estimated_minutes / 60)}h ${topic.estimated_minutes % 60}m`)}
                             </p>
                           )}
                           <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center justify-between flex-wrap gap-2">
