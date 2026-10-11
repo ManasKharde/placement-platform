@@ -285,62 +285,11 @@ const getTrackTheme = (track, index = 0) => {
   return palettes[index % palettes.length];
 };
 
-// Clean tab label helper for top navigation dock
+// Clean tab label helper for top navigation dock: exact track title/name match
 const getTrackTabLabel = (track) => {
-  const slug = (track.slug || "").toLowerCase();
-  const name = (track.name || track.title || "").toLowerCase();
-  if (slug.includes("dsa") || slug.includes("problem-solving") || name.includes("dsa") || name.includes("problem solving")) {
-    return "DSA";
-  }
-  if (slug === "databases" || name === "databases") {
-    return "Databases";
-  }
-  if (slug.includes("javascript") || name.includes("javascript")) {
-    return "JavaScript";
-  }
-  if (
-    slug.includes("node") ||
-    slug.includes("express") ||
-    name.includes("development") ||
-    name.includes("backend")
-  ) {
-    return "Development";
-  }
-  if (slug.includes("version-control") || slug.includes("git") || name.includes("version control")) {
-    return "Version Control";
-  }
-  if (slug.includes("system-design") || name.includes("system design") || slug.includes("deployment")) {
-    return "System Design";
-  }
-  if (slug.includes("typescript") || name.includes("typescript")) {
-    return "TypeScript";
-  }
-  if (slug.includes("react") || name.includes("react")) {
-    return "React.js";
-  }
-  if (slug.includes("html") || name.includes("html")) {
-    return "HTML5";
-  }
-  if (slug.includes("tailwind") || name.includes("tailwind")) {
-    return "Tailwind CSS";
-  }
-  if (slug.includes("css") || name.includes("css")) {
-    return "CSS3";
-  }
-  if (
-    slug.includes("computer-science") ||
-    slug === "core-cs" ||
-    slug.startsWith("cs-") ||
-    (slug.includes("cs") && !slug.includes("css")) ||
-    name.includes("computer science")
-  ) {
-    return "Core CS";
-  }
-  if (slug.includes("aptitude") || name.includes("aptitude") || name.includes("reasoning")) {
-    return "Aptitude";
-  }
   return track.title || track.name;
 };
+
 
 export const RoadmapPage = () => {
   const navigate = useNavigate();
@@ -828,22 +777,26 @@ export const RoadmapPage = () => {
           <div className="max-w-6xl mx-auto px-4 sm:px-8">
             <div
               ref={dockContainerRef}
-              className="flex items-center gap-2 overflow-x-auto scroll-smooth py-1 pb-2"
+              className="flex items-center gap-2 overflow-x-auto flex-nowrap whitespace-nowrap scroll-smooth py-1 pb-2"
             >
-              {tracks.map((track) => (
-                <button
-                  key={track.id}
-                  id={`pill-track-${track.id}`}
-                  type="button"
-                  onClick={() => scrollToTrack(track.id)}
-                  className={`shrink-0 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 border cursor-pointer ${activeTrackId === track.id
-                      ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
-                      : "bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+              {tracks.map((track) => {
+                const pillLabel = track.title || track.name;
+                return (
+                  <button
+                    key={track.id}
+                    id={`pill-track-${track.id}`}
+                    type="button"
+                    onClick={() => scrollToTrack(track.id)}
+                    className={`shrink-0 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 border cursor-pointer ${
+                      activeTrackId === track.id
+                        ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                        : "bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                     }`}
-                >
-                  {getTrackTabLabel(track)}
-                </button>
-              ))}
+                  >
+                    {pillLabel}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -999,7 +952,7 @@ export const RoadmapPage = () => {
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <h2 className="text-base sm:text-lg font-bold text-primary-text tracking-tight truncate">
-                              {track.name}
+                              {track.title || track.name}
                             </h2>
                             <span
                               className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${theme.bgLight} ${theme.textLight} border ${theme.borderLight}`}

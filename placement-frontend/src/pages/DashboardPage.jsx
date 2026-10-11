@@ -848,53 +848,83 @@ export const DashboardPage = () => {
                 </p>
               </div>
 
-              {/* Streamlined Role Cards Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+              {/* Prominent Composite Role Card */}
+              <div className="mt-6">
                 {readinessData.roles.map((role) => {
-                  const isTopRole = role.roleId === readinessData.roles[0]?.roleId;
+                  const roleId = role.roleId || role.id;
+                  const roleName = role.roleName || role.role_name;
+                  const score = role.readinessScore ?? role.percentage ?? 0;
+                  const completedTopics = role.completedTopics ?? role.completed_topics ?? 0;
+                  const totalTopics = role.totalTopics ?? role.total_topics ?? 0;
+                  const statusLabel = role.statusBadge || role.stage || role.status || "Orientation Stage";
+                  const description = role.targetLevel || role.description || role.tagline;
 
                   return (
                     <div
-                      key={role.roleId}
-                      className="bg-gray-50/70 border border-gray-200/70 rounded-xl p-5 hover:border-gray-300 transition-colors flex flex-col justify-between"
+                      key={roleId}
+                      className="bg-gradient-to-br from-gray-50/90 via-indigo-50/20 to-purple-50/30 border border-indigo-100/80 rounded-2xl p-6 sm:p-7 shadow-xs hover:border-indigo-200 transition-all"
                     >
-                      {/* Header Row */}
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
+                      {/* Top Header Row */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="space-y-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="font-bold text-gray-900 text-sm">
-                              {role.roleName}
+                            <h3 className="font-extrabold text-gray-900 text-lg sm:text-xl tracking-tight">
+                              {roleName}
                             </h3>
-                            {isTopRole && (
-                              <span className="bg-indigo-100 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                                TOP MATCH
-                              </span>
-                            )}
+                            <span className="bg-indigo-600 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-2xs">
+                              {role.badge || "CORE ROLE"}
+                            </span>
                           </div>
-                          <p className="text-xs text-gray-500 mt-0.5">
-                            {role.targetLevel}
+                          <p className="text-xs sm:text-sm text-gray-600 max-w-2xl leading-relaxed">
+                            {description}
                           </p>
                         </div>
 
-                        <span className="text-xl font-extrabold text-gray-900 shrink-0">
-                          {role.readinessScore}%
-                        </span>
+                        {/* Large Score Display */}
+                        <div className="flex items-baseline sm:flex-col sm:items-end gap-2 sm:gap-0 shrink-0">
+                          <span className="text-3xl sm:text-4xl font-black text-indigo-600 tracking-tight">
+                            {score}%
+                          </span>
+                          <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                            Overall Readiness
+                          </span>
+                        </div>
                       </div>
 
-                      {/* Status & Progress Bar Row */}
-                      <div className="mt-4 space-y-2">
-                        <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+                      {/* Progress Bar */}
+                      <div className="mt-5 space-y-2.5">
+                        <div className="w-full bg-gray-200/90 h-3 rounded-full overflow-hidden shadow-inner">
                           <div
-                            className="bg-indigo-600 h-full rounded-full transition-all duration-500"
-                            style={{ width: `${role.readinessScore}%` }}
+                            className="bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 h-full rounded-full transition-all duration-700 ease-out"
+                            style={{ width: `${Math.min(100, Math.max(0, score))}%` }}
                           />
                         </div>
 
-                        <div className="flex items-center justify-between text-xs text-gray-500 font-medium">
-                          <span>
-                            {role.completedTopics} of {role.totalTopics} Topics Completed
+                        {/* Bottom Metric Badges */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-gray-600 font-medium pt-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-gray-900">
+                              {completedTopics} of {totalTopics} Topics Completed
+                            </span>
+                            {role.frontend && role.backend && (
+                              <span className="text-gray-400 hidden sm:inline">·</span>
+                            )}
+                            {role.frontend && role.backend && (
+                              <div className="flex items-center gap-2 text-[11px] text-gray-500">
+                                <span className="bg-white px-2 py-0.5 rounded-md border border-gray-200">
+                                  Frontend: <strong className="text-indigo-600">{role.frontend.completedTopics}/{role.frontend.totalTopics}</strong>
+                                </span>
+                                <span className="bg-white px-2 py-0.5 rounded-md border border-gray-200">
+                                  Backend: <strong className="text-purple-600">{role.backend.completedTopics}/{role.backend.totalTopics}</strong>
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 font-semibold text-xs border border-indigo-100 self-start sm:self-auto">
+                            <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                            {statusLabel}
                           </span>
-                          <span>{role.statusBadge || role.status}</span>
                         </div>
                       </div>
                     </div>

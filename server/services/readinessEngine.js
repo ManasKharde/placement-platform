@@ -1,223 +1,190 @@
 const pool = require("../config/db");
 
+// Sole Composite Role Definition
 const MARKET_ROLES = [
   {
-    roleId: "backend-software-engineer",
-    roleName: "Backend Software Engineer",
-    targetLevel: "SDE-1 / Junior Backend Engineer",
-    tagline: "High-throughput APIs, Distributed Systems, Relational Data Architecture & Core CS",
-    requiredTracks: [
-      { slug: "nodejs-express-architecture", weight: 35, required: true },
-      { slug: "problem-solving-dsa-sql", weight: 30, required: true },
-      { slug: "core-computer-science-fundamentals", weight: 20, required: true },
-      { slug: "system-design-deployment", weight: 15, required: false },
-    ],
-  },
-  {
-    roleId: "fullstack-software-engineer",
-    roleName: "Full-Stack Software Engineer",
-    targetLevel: "Full-Stack Engineer (MERN / Polyglot)",
-    tagline: "End-to-End Web Applications, State Management, REST APIs & SQL Modeling",
-    requiredTracks: [
-      { slug: "nodejs-express-architecture", weight: 30, required: true },
-      { slug: "problem-solving-dsa-sql", weight: 30, required: true },
-      { slug: "core-computer-science-fundamentals", weight: 25, required: true },
-      { slug: "system-design-deployment", weight: 15, required: false },
-    ],
-  },
-  {
-    roleId: "campus-sde-general",
-    roleName: "Campus SDE / Graduate Trainee",
-    targetLevel: "Top Campus Recruitment & Technical Screening",
-    tagline: "LeetCode Problem Solving, Systems Fundamentals & Preliminary Quantitative Logic",
-    requiredTracks: [
-      { slug: "problem-solving-dsa-sql", weight: 40, required: true },
-      { slug: "core-computer-science-fundamentals", weight: 35, required: true },
-      { slug: "quantitative-aptitude-logical-reasoning", weight: 15, required: true },
-      { slug: "nodejs-express-architecture", weight: 10, required: false },
-    ],
-  },
-  {
-    roleId: "database-systems-engineer",
-    roleName: "Database & Backend Systems Engineer",
-    targetLevel: "Data Infrastructure & Backend Performance",
-    tagline: "Advanced SQL Optimization, ACID Guarantees, Indexing (B-Trees) & Distributed Cache",
-    requiredTracks: [
-      { slug: "problem-solving-dsa-sql", weight: 45, required: true },
-      { slug: "core-computer-science-fundamentals", weight: 35, required: true },
-      { slug: "system-design-deployment", weight: 20, required: true },
-    ],
+    roleId: "software-engineer",
+    roleName: "Software Engineer",
+    badge: "CORE ROLE",
+    targetLevel: "Comprehensive Full-Stack & Systems Readiness",
+    tagline: "Comprehensive Full-Stack & Systems Readiness (Frontend + Backend)",
   },
 ];
 
 /**
+ * Stage label helper based on combined percentage
+ * @param {number|string} percentage 
+ * @returns {string} Stage description
+ */
+const getStageLabel = (percentage) => {
+  const p = typeof percentage === "string" ? parseFloat(percentage) : percentage;
+  if (p >= 80) return "Ready for Technical Screening";
+  if (p >= 50) return "Competitive for Placement Screening";
+  if (p >= 20) return "Core Skills in Progress";
+  return "Orientation Stage";
+};
+
+/**
+ * Status helper based on combined percentage
+ * @param {number|string} percentage 
+ * @returns {string} Status title
+ */
+const getStatus = (percentage) => {
+  const p = typeof percentage === "string" ? parseFloat(percentage) : percentage;
+  if (p >= 80) return "Interview Ready";
+  if (p >= 50) return "Shortlist Competitive";
+  if (p >= 20) return "Foundations Building";
+  return "Getting Started";
+};
+
+/**
+ * Status color helper
+ * @param {number|string} percentage 
+ * @returns {string} Color token
+ */
+const getStatusColor = (percentage) => {
+  const p = typeof percentage === "string" ? parseFloat(percentage) : percentage;
+  if (p >= 80) return "emerald";
+  if (p >= 50) return "indigo";
+  if (p >= 20) return "amber";
+  return "slate";
+};
+
+/**
+ * Combines Frontend and Backend statistics to produce the single Software Engineer readiness role
+ * @param {Object} frontendStats - { totalTopics, completedTopics, percentage }
+ * @param {Object} backendStats - { totalTopics, completedTopics, percentage }
+ * @returns {Array<Object>} Single composite role object array
+ */
+const calculateSoftwareEngineerReadiness = (frontendStats, backendStats) => {
+  const totalCompleted = (frontendStats.completedTopics || 0) + (backendStats.completedTopics || 0);
+  const totalTopics = (frontendStats.totalTopics || 0) + (backendStats.totalTopics || 0);
+  const percentage = totalTopics > 0 ? ((totalCompleted / totalTopics) * 100).toFixed(1) : "0.0";
+  const numPercentage = parseFloat(percentage);
+
+  const stage = getStageLabel(numPercentage);
+  const status = getStatus(numPercentage);
+  const statusColor = getStatusColor(numPercentage);
+
+  return [
+    {
+      id: "software-engineer",
+      roleId: "software-engineer",
+      role_name: "Software Engineer",
+      roleName: "Software Engineer",
+      badge: "CORE ROLE",
+      targetLevel: "Comprehensive Full-Stack & Systems Readiness",
+      description: "Comprehensive Full-Stack & Systems Readiness (Frontend + Backend)",
+      tagline: "Comprehensive Full-Stack & Systems Readiness (Frontend + Backend)",
+      percentage: numPercentage,
+      readinessScore: numPercentage,
+      completed_topics: totalCompleted,
+      completedTopics: totalCompleted,
+      total_topics: totalTopics,
+      totalTopics: totalTopics,
+      stage: stage,
+      status: status,
+      statusBadge: stage,
+      statusColor: statusColor,
+      frontend: {
+        totalTopics: frontendStats.totalTopics || 0,
+        completedTopics: frontendStats.completedTopics || 0,
+        percentage: frontendStats.percentage || 0,
+      },
+      backend: {
+        totalTopics: backendStats.totalTopics || 0,
+        completedTopics: backendStats.completedTopics || 0,
+        percentage: backendStats.percentage || 0,
+      },
+    },
+  ];
+};
+
+/**
  * Calculates percentage readiness for market roles based on completed modular tracks
+ * Combines progress across both Frontend and Backend paths/tracks into a single Software Engineer composite role.
  * @param {number} userId - The student's user ID
  * @returns {Promise<Object>} Aggregated market role readiness breakdown
  */
 const calculateUserReadiness = async (userId) => {
-  // 1. Fetch all tracks and their topics with completion status for this user
-  const trackQuery = `
-    SELECT 
-      t.id AS track_id,
-      t.name AS track_name,
-      t.slug AS track_slug,
-      t.evaluation_type,
-      top.id AS topic_id,
-      top.name AS topic_name,
-      top.slug AS topic_slug,
-      tt.topic_order,
-      COALESCE(up.status, 'not_started') AS topic_status
-    FROM tracks t
-    JOIN track_topics tt ON t.id = tt.track_id
-    JOIN topics top ON tt.topic_id = top.id
-    LEFT JOIN user_progress up ON top.id = up.topic_id AND up.user_id = $1
-    ORDER BY t.id, tt.topic_order ASC;
-  `;
+  // 1. Determine User's Active Preparation Path if set
+  const userPathRes = await pool.query(
+    `SELECT upp.path_id, pp.slug, pp.name 
+     FROM user_preparation_paths upp 
+     JOIN preparation_paths pp ON upp.path_id = pp.id 
+     WHERE upp.user_id = $1`,
+    [userId]
+  );
+  const userPath = userPathRes.rows[0];
 
-  const trackResult = await pool.query(trackQuery, [userId]);
+  // 2. Query Frontend Path Metrics (React.js Frontend Developer)
+  const feRes = await pool.query(
+    `SELECT 
+       COUNT(DISTINCT top.id)::int AS total_topics,
+       COUNT(DISTINCT CASE WHEN up.status = 'completed' THEN top.id END)::int AS completed_topics
+     FROM path_tracks pt
+     JOIN preparation_paths pp ON pt.path_id = pp.id
+     JOIN track_topics tt ON pt.track_id = tt.track_id
+     JOIN topics top ON tt.topic_id = top.id
+     LEFT JOIN user_progress up ON top.id = up.topic_id AND up.user_id = $1
+     WHERE pp.slug ILIKE '%frontend%' OR pp.slug ILIKE '%react%';`,
+    [userId]
+  );
 
-  // Group by track slug
-  const trackMap = new Map();
-  for (const row of trackResult.rows) {
-    if (!trackMap.has(row.track_slug)) {
-      trackMap.set(row.track_slug, {
-        trackId: row.track_id,
-        trackName: row.track_name,
-        trackSlug: row.track_slug,
-        evaluationType: row.evaluation_type || "practice",
-        topics: [],
-        totalTopics: 0,
-        completedTopics: 0,
-      });
-    }
-
-    const t = trackMap.get(row.track_slug);
-    const isCompleted = row.topic_status === "completed";
-    t.totalTopics++;
-    if (isCompleted) t.completedTopics++;
-    t.topics.push({
-      id: row.topic_id,
-      name: row.topic_name,
-      slug: row.topic_slug,
-      order: row.topic_order,
-      isCompleted,
-    });
+  // 3. Query Backend Path Metrics (Active backend path if user selected backend, otherwise nodejs-backend-developer)
+  let backendPathFilter = "pp.slug = 'nodejs-backend-developer' OR pp.id = 3";
+  if (userPath && (userPath.slug.includes("backend") || userPath.slug.includes("java") || userPath.slug.includes("python"))) {
+    backendPathFilter = `pp.id = ${parseInt(userPath.path_id, 10)}`;
   }
 
-  // Precompute track percentages
-  trackMap.forEach((t) => {
-    t.progressPercentage =
-      t.totalTopics > 0 ? Math.round((t.completedTopics / t.totalTopics) * 1000) / 10 : 0;
-  });
+  const beRes = await pool.query(
+    `SELECT 
+       COUNT(DISTINCT top.id)::int AS total_topics,
+       COUNT(DISTINCT CASE WHEN up.status = 'completed' THEN top.id END)::int AS completed_topics
+     FROM path_tracks pt
+     JOIN preparation_paths pp ON pt.path_id = pp.id
+     JOIN track_topics tt ON pt.track_id = tt.track_id
+     JOIN topics top ON tt.topic_id = top.id
+     LEFT JOIN user_progress up ON top.id = up.topic_id AND up.user_id = $1
+     WHERE ${backendPathFilter};`,
+    [userId]
+  );
 
-  // 2. Evaluate each Market Role
-  const rolesBreakdown = MARKET_ROLES.map((role) => {
-    let totalWeight = 0;
-    let weightedScoreSum = 0;
-    let totalRoleTopics = 0;
-    let completedRoleTopics = 0;
+  const feTotal = feRes.rows[0]?.total_topics || 0;
+  const feCompleted = feRes.rows[0]?.completed_topics || 0;
+  const fePct = feTotal > 0 ? parseFloat(((feCompleted / feTotal) * 100).toFixed(1)) : 0;
 
-    const evaluatedTracks = [];
-    let recommendedNextTopic = null;
+  const beTotal = beRes.rows[0]?.total_topics || 0;
+  const beCompleted = beRes.rows[0]?.completed_topics || 0;
+  const bePct = beTotal > 0 ? parseFloat(((beCompleted / beTotal) * 100).toFixed(1)) : 0;
 
-    for (const req of role.requiredTracks) {
-      const trackData = trackMap.get(req.slug);
-      const trackProgress = trackData ? trackData.progressPercentage : 0;
-      const totalTopics = trackData ? trackData.totalTopics : 0;
-      const completedTopics = trackData ? trackData.completedTopics : 0;
+  const frontendStats = {
+    totalTopics: feTotal,
+    completedTopics: feCompleted,
+    percentage: fePct,
+  };
 
-      totalWeight += req.weight;
-      weightedScoreSum += trackProgress * req.weight;
-      totalRoleTopics += totalTopics;
-      completedRoleTopics += completedTopics;
+  const backendStats = {
+    totalTopics: beTotal,
+    completedTopics: beCompleted,
+    percentage: bePct,
+  };
 
-      evaluatedTracks.push({
-        trackName: trackData ? trackData.trackName : req.slug,
-        trackSlug: req.slug,
-        evaluationType: trackData ? trackData.evaluationType : "practice",
-        weight: req.weight,
-        isRequired: req.required,
-        totalTopics,
-        completedTopics,
-        progressPercentage: trackProgress,
-      });
-
-      // Find first uncompleted topic in the highest-weight incomplete track
-      if (!recommendedNextTopic && trackData) {
-        const nextIncomplete = trackData.topics.find((tp) => !tp.isCompleted);
-        if (nextIncomplete) {
-          recommendedNextTopic = {
-            id: nextIncomplete.id,
-            name: nextIncomplete.name,
-            slug: nextIncomplete.slug,
-            trackName: trackData.trackName,
-            trackSlug: trackData.trackSlug,
-          };
-        }
-      }
-    }
-
-    const readinessScore =
-      totalWeight > 0 ? Math.round((weightedScoreSum / totalWeight) * 10) / 10 : 0;
-
-    // Status and UI badges
-    let status = "Getting Started";
-    let statusBadge = "Orientation Stage";
-    let statusColor = "slate";
-
-    if (readinessScore >= 80) {
-      status = "Interview Ready";
-      statusBadge = "Ready for Technical Screening";
-      statusColor = "emerald";
-    } else if (readinessScore >= 50) {
-      status = "Shortlist Competitive";
-      statusBadge = "Competitive for Placement Screening";
-      statusColor = "indigo";
-    } else if (readinessScore >= 20) {
-      status = "Foundations Building";
-      statusBadge = "Core Skills in Progress";
-      statusColor = "amber";
-    }
-
-    return {
-      roleId: role.roleId,
-      roleName: role.roleName,
-      targetLevel: role.targetLevel,
-      tagline: role.tagline,
-      readinessScore,
-      status,
-      statusBadge,
-      statusColor,
-      totalTopics: totalRoleTopics,
-      completedTopics: completedRoleTopics,
-      requiredTracks: evaluatedTracks,
-      recommendedNextTopic,
-    };
-  });
-
-  // Sort roles by highest readiness
-  rolesBreakdown.sort((a, b) => b.readinessScore - a.readinessScore);
-
-  const averageReadiness =
-    rolesBreakdown.length > 0
-      ? Math.round(
-        (rolesBreakdown.reduce((sum, r) => sum + r.readinessScore, 0) /
-          rolesBreakdown.length) *
-        10
-      ) / 10
-      : 0;
+  // 4. Calculate Single Composite Role "Software Engineer"
+  const roles = calculateSoftwareEngineerReadiness(frontendStats, backendStats);
+  const primaryRole = roles[0];
 
   return {
     userId,
-    averageReadiness,
-    topRole: rolesBreakdown[0] || null,
-    roles: rolesBreakdown,
+    averageReadiness: primaryRole.readinessScore,
+    topRole: primaryRole,
+    roles,
     calculatedAt: new Date().toISOString(),
   };
 };
 
 module.exports = {
   calculateUserReadiness,
+  calculateSoftwareEngineerReadiness,
   MARKET_ROLES,
 };
