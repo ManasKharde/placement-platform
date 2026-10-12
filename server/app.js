@@ -109,6 +109,8 @@ const app = express();
 // 1. HTTP Security Headers
 app.use(helmet());
 
+app.set('trust proxy', 1);
+
 // 2. CORS Setup
 app.use(
     cors({

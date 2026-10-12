@@ -135,18 +135,20 @@ const login = async (req, res) => {
       [refreshToken, user.id]
     );
 
+    const isProduction = process.env.NODE_ENV === "production";
+
     res.cookie("accesstoken", accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: isProduction, // Required to be true when sameSite is "none"
+      sameSite: isProduction ? "none" : "lax", // "none" allows cross-origin localhost <-> render / vercel <-> render
       path: "/",
       maxAge: 15 * 60 * 1000,
     });
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax",
       path: "/",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
@@ -396,8 +398,18 @@ const logout = async (req, res) => {
       }
     }
 
-    res.clearCookie("accesstoken", { path: "/" });
-    res.clearCookie("refreshToken", { path: "/" });
+    res.clearCookie("accesstoken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      path: "/",
+    });
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      path: "/",
+    });
 
     res.status(200).json({
       message: "Logout successful",
