@@ -436,18 +436,21 @@ const googleCallback = async (req, res) => {
 
     console.log(`Updated refresh token for user ID: ${user.id}`);
 
+    const isProduction = process.env.NODE_ENV === "production";
+
+    // Inside googleCallback:
     res.cookie("accesstoken", accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax",
       path: "/",
       maxAge: 15 * 60 * 1000,
     });
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax",
       path: "/",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
