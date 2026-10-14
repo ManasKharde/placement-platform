@@ -663,7 +663,7 @@ export const DashboardPage = () => {
                           />
                         </div>
 
-                        <div className="mt-3 pt-2.5 border-t border-gray-200/50 flex justify-end">
+                        {/* <div className="mt-3 pt-2.5 border-t border-gray-200/50 flex justify-end">
                           <Link
                             to={`/roadmap#track-${track.trackId}`}
                             className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-700 group"
@@ -671,7 +671,7 @@ export const DashboardPage = () => {
                             <span>View Track Topics</span>
                             <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
                           </Link>
-                        </div>
+                        </div> */}
                       </div>
                     ))
                   ) : (
