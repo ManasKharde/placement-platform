@@ -1448,17 +1448,19 @@ export const TopicDetailPage = () => {
                           </p>
 
                           {/* Breakdown Badges */}
-                          <div className="flex items-center gap-2 pt-1 flex-wrap">
-                            <span className="text-xs font-semibold px-2.5 py-1 rounded-xl bg-blue-50 text-blue-700 border border-blue-200">
-                              📘 {theoryTotal || Math.ceil(mcqTotal * 0.5)} Theory & Concepts
-                            </span>
-                            <span className="text-xs font-semibold px-2.5 py-1 rounded-xl bg-purple-50 text-purple-700 border border-purple-200">
-                              🔢 {numericalTotal || Math.floor(mcqTotal * 0.3)} Numerical & Calculations
-                            </span>
-                            <span className="text-xs font-semibold px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              ⚙️ {scenarioTotal || Math.floor(mcqTotal * 0.2)} Applications & Shortcuts
-                            </span>
-                          </div>
+                          {!isAptitude && (
+                            <div className="flex items-center gap-2 pt-1 flex-wrap">
+                              <span className="text-xs font-semibold px-2.5 py-1 rounded-xl bg-blue-50 text-blue-700 border border-blue-200">
+                                📘 {theoryTotal || Math.ceil(mcqTotal * 0.5)} Theory & Concepts
+                              </span>
+                              <span className="text-xs font-semibold px-2.5 py-1 rounded-xl bg-purple-50 text-purple-700 border border-purple-200">
+                                🔢 {numericalTotal || Math.floor(mcqTotal * 0.3)} Numerical & Calculations
+                              </span>
+                              <span className="text-xs font-semibold px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                ⚙️ {scenarioTotal || Math.floor(mcqTotal * 0.2)} Applications & Shortcuts
+                              </span>
+                            </div>
+                          )}
                         </div>
 
                         {/* Timer & Mode Controls */}
