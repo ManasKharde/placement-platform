@@ -143,7 +143,7 @@ export const AppLayout = ({ children, onPathSwitched }) => {
     <div className="flex h-screen w-screen overflow-hidden bg-[#f8f9fa] flex-col">
       {/* ── Top Navbar ── */}
       <header className="sticky top-0 z-50 w-full bg-white border-b border-slate-200 shrink-0">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="w-full h-16 flex items-center justify-between px-4 sm:px-6 md:px-8">
           {/* Left side: Logo & Mobile Menu Toggle */}
           <div className="relative" ref={mobileNavRef}>
             <button
