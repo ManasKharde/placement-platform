@@ -285,6 +285,7 @@ export const AppLayout = ({ children, onPathSwitched }) => {
           className="flex-1 h-full overflow-y-auto overscroll-contain relative"
         >
           {children}
+          <div className="h-28 w-full shrink-0 md:hidden" aria-hidden="true" />
         </main>
       </div>
 
