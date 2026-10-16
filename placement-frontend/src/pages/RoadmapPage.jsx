@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import apiClient from "../api/client";
+import { normalizeTrackName } from "../utils/trackUtils";
 import {
   Sparkles,
   RefreshCw,
@@ -33,7 +34,7 @@ const getTrackTheme = (track, index = 0) => {
   const slug = (track.slug || "").toLowerCase();
   const name = (track.name || track.title || "").toLowerCase();
 
-  // Problem Solving: DSA & SQL
+  // Problem Solving: DSA
   if (
     slug.includes("problem-solving") ||
     slug.includes("dsa") ||
@@ -47,7 +48,7 @@ const getTrackTheme = (track, index = 0) => {
       borderLight: "border-purple-200",
       textLight: "text-purple-700",
       accentBar: "bg-purple-600",
-      badgeText: "Problem Solving & Queries",
+      badgeText: "Problem Solving: DSA",
     };
   }
 
@@ -287,7 +288,7 @@ const getTrackTheme = (track, index = 0) => {
 
 // Clean tab label helper for top navigation dock: exact track title/name match
 const getTrackTabLabel = (track) => {
-  return track.title || track.name;
+  return normalizeTrackName(track.title || track.name);
 };
 
 
@@ -384,7 +385,21 @@ export const RoadmapPage = () => {
   }, [loading, roadmapData, location.state]);
 
   // Dynamic tracks extraction - Filter so ONLY top-level tracks appear
-  const rawTracks = roadmapData?.tracks || roadmapData?.roadmap?.tracks || [];
+  const rawTracks = (roadmapData?.tracks || roadmapData?.roadmap?.tracks || []).map((t) => ({
+    ...t,
+    title: normalizeTrackName(t.title || t.name),
+    name: normalizeTrackName(t.name || t.title),
+    sub_tracks: (t.sub_tracks || t.subTracks || []).map((sub) => ({
+      ...sub,
+      title: normalizeTrackName(sub.title || sub.name),
+      name: normalizeTrackName(sub.name || sub.title),
+    })),
+    subTracks: (t.sub_tracks || t.subTracks || []).map((sub) => ({
+      ...sub,
+      title: normalizeTrackName(sub.title || sub.name),
+      name: normalizeTrackName(sub.name || sub.title),
+    })),
+  }));
   const tracks = rawTracks
     .filter((t) => !t.parent_track_id && !t.parentTrackId)
     .sort((a, b) => (a.order || a.track_order || 1) - (b.order || b.track_order || 1));
@@ -780,7 +795,7 @@ export const RoadmapPage = () => {
               className="flex items-center gap-2 overflow-x-auto flex-nowrap whitespace-nowrap scroll-smooth py-1 pb-2"
             >
               {tracks.map((track) => {
-                const pillLabel = track.title || track.name;
+                const pillLabel = normalizeTrackName(track.title || track.name);
                 return (
                   <button
                     key={track.id}
@@ -952,7 +967,7 @@ export const RoadmapPage = () => {
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <h2 className="text-base sm:text-lg font-bold text-primary-text tracking-tight truncate">
-                              {track.title || track.name}
+                              {normalizeTrackName(track.title || track.name)}
                             </h2>
                             <span
                               className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${theme.bgLight} ${theme.textLight} border ${theme.borderLight}`}
@@ -1061,7 +1076,7 @@ export const RoadmapPage = () => {
                                       <div className="min-w-0">
                                         <div className="flex items-center gap-2 flex-wrap">
                                           <h3 className="text-sm sm:text-base font-bold text-primary-text tracking-tight truncate">
-                                            {subTrack.title || subTrack.name}
+                                            {normalizeTrackName(subTrack.title || subTrack.name)}
                                           </h3>
                                           <span
                                             className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${subTheme.bgLight} ${subTheme.textLight} border ${subTheme.borderLight}`}

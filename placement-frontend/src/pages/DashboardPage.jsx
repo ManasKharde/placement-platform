@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import apiClient from "../api/client";
+import { normalizeTrackName } from "../utils/trackUtils";
 import {
   Sparkles,
   Server,
@@ -78,7 +79,7 @@ export const DashboardPage = () => {
           id: m.topicId,
           topicId: m.topicId,
           title: m.topicName,
-          subtitle: m.trackName,
+          subtitle: normalizeTrackName(m.trackName),
           completed: m.status === "completed",
         }));
         setMissions(fetchedMissions);
@@ -90,8 +91,8 @@ export const DashboardPage = () => {
       } else {
         // Fallback standard placement daily missions
         setMissions([
-          { id: 44, topicId: 44, title: "Arrays & Hashing", subtitle: "Problem Solving: DSA & SQL", completed: false },
-          { id: 51, topicId: 51, title: "Relational SQL: Joins & Window Functions", subtitle: "Problem Solving: DSA & SQL", completed: false },
+          { id: 44, topicId: 44, title: "Arrays & Hashing", subtitle: "Problem Solving: DSA", completed: false },
+          { id: 51, topicId: 51, title: "Relational SQL: Joins & Window Functions", subtitle: "Problem Solving: DSA", completed: false },
           { id: 48, topicId: 48, title: "Operating Systems: Concurrency & Virtual Memory", subtitle: "Core Computer Science", completed: false },
         ]);
       }
@@ -212,7 +213,7 @@ export const DashboardPage = () => {
 
   // Helper for role stack tags
   const getStackBadges = (slug) => {
-    if (slug?.includes("node")) return ["Node.js", "Express", "PostgreSQL", "DSA & SQL"];
+    if (slug?.includes("node")) return ["Node.js", "Express", "PostgreSQL", "DSA"];
     if (slug?.includes("react")) return ["React", "TypeScript", "Tailwind CSS", "State Management"];
     if (slug?.includes("java")) return ["Java", "Spring Boot", "Hibernate / JPA", "Microservices"];
     if (slug?.includes("python") || slug?.includes("django")) return ["Python", "Django", "PostgreSQL", "REST APIs"];
@@ -228,7 +229,7 @@ export const DashboardPage = () => {
     (dashboardData?.dashboard?.trackBreakdown?.[0]
       ? {
           id: dashboardData.dashboard.trackBreakdown[0].trackId,
-          title: dashboardData.dashboard.trackBreakdown[0].trackName,
+          title: normalizeTrackName(dashboardData.dashboard.trackBreakdown[0].trackName),
           subtitle: "Start your active curriculum track",
           isFallback: true,
         }
@@ -645,7 +646,7 @@ export const DashboardPage = () => {
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <h3 className="font-bold text-gray-900 text-sm">
-                              {track.trackName}
+                              {normalizeTrackName(track.trackName)}
                             </h3>
                             <p className="text-xs text-gray-500 mt-0.5">
                               {track.completedTopics} of {track.totalTopics} Topics Completed
@@ -708,7 +709,7 @@ export const DashboardPage = () => {
                   {nextIncompleteTopic ? (
                     <div className="mt-4 p-4 rounded-xl bg-gray-50 border border-gray-200/70 space-y-1">
                       <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block truncate">
-                        {nextIncompleteTopic.subtitle || nextIncompleteTopic.trackName || "Next Up"}
+                        {normalizeTrackName(nextIncompleteTopic.subtitle || nextIncompleteTopic.trackName) || "Next Up"}
                       </span>
                       <h3 className="text-sm font-bold text-gray-900 leading-snug line-clamp-2">
                         {nextIncompleteTopic.title || nextIncompleteTopic.name}

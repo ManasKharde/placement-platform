@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import apiClient from "../api/client";
+import { normalizeTrackName } from "../utils/trackUtils";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -432,7 +433,11 @@ export const TopicDetailPage = () => {
       setError("");
       const res = await apiClient.get(`/topics/${topicId}`);
       if (res.data?.topic) {
-        setTopic(res.data.topic);
+        const fetchedTopic = {
+          ...res.data.topic,
+          track_name: normalizeTrackName(res.data.topic.track_name),
+        };
+        setTopic(fetchedTopic);
         const qCount = res.data.topic.practice_items?.length || 0;
         const initialSeconds = qCount <= 25 ? 1800 : 3600;
         setMcqTimeLeft(initialSeconds);
@@ -709,21 +714,20 @@ export const TopicDetailPage = () => {
           <button
             type="button"
             onClick={() => navigate('/roadmap', { state: { scrollToTopicId: topic?.id || parseInt(topicId, 10) } })}
-            className="flex items-center gap-1.5 font-bold text-brand-600 hover:text-brand-700 hover:underline transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 font-bold text-brand-600 hover:text-brand-700 hover:underline transition-colors cursor-pointer shrink-0"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             <span>Back to Roadmap</span>
           </button>
           <span>/</span>
-          <span className="font-medium text-secondary-text hidden sm:inline">
-            {isDatabaseTopic ? "Databases" : (topic?.pillar?.name || "Pillar")}
-          </span>
-          <span className="hidden sm:inline">/</span>
-          <span className="font-medium text-secondary-text truncate max-w-[150px]">
-            {topic?.track_name || "Track"}
+          <span className="font-medium text-secondary-text shrink-0">
+            {normalizeTrackName(topic?.track_name) || "Track"}
           </span>
           <span>/</span>
-          <span className="font-bold text-primary-text truncate max-w-[200px]">
+          <span
+            title={topic?.title || "Topic"}
+            className="truncate max-w-[180px] sm:max-w-xs md:max-w-md lg:max-w-lg inline-block align-bottom font-medium text-slate-900"
+          >
             {topic?.title || "Topic"}
           </span>
         </div>
@@ -815,7 +819,7 @@ export const TopicDetailPage = () => {
 
                   {/* Track Pill */}
                   <span className="text-[11px] font-semibold text-secondary-text bg-background px-2.5 py-0.5 rounded-full border border-border-subtle">
-                    {topic.track_name}
+                    {normalizeTrackName(topic.track_name)}
                   </span>
 
                   {/* Subtrack Pill */}
