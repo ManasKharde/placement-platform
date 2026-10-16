@@ -691,6 +691,15 @@ export const TopicDetailPage = () => {
     )
   );
 
+  const trackIdentifier = `${topic?.track_name || ""} ${topic?.track_slug || ""} ${topic?.track || ""} ${topic?.category || ""} ${topic?.module_name || ""} ${topic?.pillar?.name || ""} ${topic?.pillar?.key || ""} ${topic?.slug || ""}`.toLowerCase();
+
+  const isAptitude =
+    trackIdentifier.includes("aptitude") ||
+    trackIdentifier.includes("reasoning") ||
+    trackIdentifier.includes("quantitative") ||
+    Boolean(topic?.slug && topic.slug.startsWith("aptitude-")) ||
+    Boolean(topic?.track_slug && topic.track_slug.includes("aptitude"));
+
   const isInterviewQATopic =
     !isMcqEvaluationTopic &&
     (topic?.track_slug === "javascript-mastery" ||
@@ -1082,8 +1091,10 @@ export const TopicDetailPage = () => {
                 })()}
 
                 {/* 2. Interactive Target Practice Problems / Interview Q&As / Timed Evaluation Suite */}
+                {/* Render Timed Evaluation Suite only for Core Computer Science, never for Aptitude */}
                 {isMcqEvaluationTopic ? (
-                  <div className="bg-surface rounded-3xl border border-brand-200/80 dark:border-brand-900/50 shadow-card p-5 sm:p-6 space-y-4">
+                  !isAptitude && (
+                    <div className="bg-surface rounded-3xl border border-brand-200/80 dark:border-brand-900/50 shadow-card p-5 sm:p-6 space-y-4">
                     <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
                       <div className="flex items-center gap-2">
                         <Zap className="h-4 w-4 text-brand-600" />
@@ -1166,7 +1177,8 @@ export const TopicDetailPage = () => {
                       </div>
                     </div>
                   </div>
-                ) : (
+                )
+              ) : !isAptitude ? (
                   <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-5 sm:p-6 space-y-4">
                     <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
                       <div className="flex items-center gap-2">
@@ -1292,7 +1304,7 @@ export const TopicDetailPage = () => {
                       </div>
                     )}
                   </div>
-                )}
+                ) : null}
 
                 {/* 3. Recommended Documentation & Guides */}
                 <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-5 sm:p-6 space-y-4">
