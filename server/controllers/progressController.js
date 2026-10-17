@@ -120,21 +120,44 @@ const toggleTopicProgress = async (req, res) => {
 
     // 2b. Quiz Completion Enforcement Gateway
     if (targetStatus === "completed") {
+      // Check if topic is in Aptitude track or has a quiz
+      const topicTrackResult = await pool.query(
+        `SELECT tr.name AS track_name, tr.slug AS track_slug 
+         FROM track_topics tt 
+         JOIN tracks tr ON tt.track_id = tr.id 
+         WHERE tt.topic_id = $1`,
+        [topicId]
+      );
+
+      const isAptitudeTrack = topicTrackResult.rows.some((row) => {
+        const name = (row.track_name || "").toLowerCase();
+        const slug = (row.track_slug || "").toLowerCase();
+        return name.includes("aptitude") || slug.includes("aptitude");
+      });
+
       const quizCheck = await pool.query(
         "SELECT id, passing_percentage FROM quizzes WHERE topic_id = $1",
         [topicId]
       );
 
-      if (quizCheck.rows.length > 0) {
-        const quizId = quizCheck.rows[0].id;
-        const passCheck = await pool.query(
-          "SELECT id FROM quiz_attempts WHERE user_id = $1 AND quiz_id = $2 AND passed = true LIMIT 1",
-          [userId, quizId]
-        );
+      if (quizCheck.rows.length > 0 || isAptitudeTrack) {
+        let passed = false;
+        if (quizCheck.rows.length > 0) {
+          const quizId = quizCheck.rows[0].id;
+          const passCheck = await pool.query(
+            "SELECT id FROM quiz_attempts WHERE user_id = $1 AND quiz_id = $2 AND passed = true AND percentage >= 70 LIMIT 1",
+            [userId, quizId]
+          );
+          if (passCheck.rows.length > 0) {
+            passed = true;
+          }
+        }
 
-        if (passCheck.rows.length === 0) {
+        if (!passed) {
           return res.status(403).json({
-            error: "Assessment Required: You must score at least 70% on the topic assessment before marking this topic as completed.",
+            success: false,
+            message: "A minimum score of 70% on the assessment is required to complete this topic.",
+            error: "A minimum score of 70% on the assessment is required to complete this topic.",
           });
         }
       }

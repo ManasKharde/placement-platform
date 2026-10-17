@@ -85,9 +85,11 @@ seedCompletePillars()
     .then(() => seedDsaBatch30())
     .then(() => seedDsaBatch31())
     .catch((err) => console.error("Complete pillars / modular tracks / DSA Batches migration failed:", err.message));
+const { seedAptitudeQuizzes } = require("./scripts/seed_aptitude_quizzes");
 migrateQuizzes()
     .then(() => seedQuizzes())
     .then(() => seedCnQuiz())
+    .then(() => seedAptitudeQuizzes())
     .catch((err) => console.error("Quiz migration/seeding failed:", err.message));
 require("./config/passport");
 const { apiLimiter, authLimiter } = require("./middleware/rateLimiter");

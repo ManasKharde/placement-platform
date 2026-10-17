@@ -733,9 +733,9 @@ export const TopicDetailPage = () => {
           (p) => p.platform === "Technical Interview QA" || p.answer
         )
       ));
-  const hasQuiz = Boolean(quizData?.hasQuiz);
+  const hasQuiz = Boolean(quizData?.hasQuiz) || isAptitude;
   const isQuizPassed = Boolean(quizData?.latest_attempt?.passed);
-  const isLocked = hasQuiz && !isQuizPassed && !isCompleted;
+  const isLocked = (hasQuiz || isAptitude) && !isQuizPassed && !isCompleted;
 
   return (
     <div className="p-4 sm:p-8 max-w-5xl mx-auto space-y-6">
@@ -1322,6 +1322,50 @@ export const TopicDetailPage = () => {
                 ).length;
                 const currentQuestion = mcqQuestions[activeQuestionIndex] || mcqQuestions[0];
 
+                const handleMcqAssessmentSubmit = async () => {
+                  setIsTestSubmitted(true);
+                  setIsTimerRunning(false);
+                  setQuizMode("browse");
+
+                  // Auto-sync attempt to backend quiz engine
+                  if (quizData?.quiz?.id) {
+                    const formatted = {};
+                    if (quizData.questions?.length > 0) {
+                      quizData.questions.forEach((q, idx) => {
+                        const raw =
+                          selectedAnswers[q.id] !== undefined
+                            ? selectedAnswers[q.id]
+                            : selectedAnswers[idx] !== undefined
+                            ? selectedAnswers[idx]
+                            : mcqQuestions[idx]?.id
+                            ? selectedAnswers[mcqQuestions[idx].id]
+                            : undefined;
+                        if (raw !== undefined && raw !== null && raw !== "") {
+                          if (typeof raw === "number") {
+                            formatted[q.id] = raw;
+                          } else if (typeof raw === "string") {
+                            const optIdx = ["A", "B", "C", "D"].indexOf(raw.trim().toUpperCase());
+                            formatted[q.id] = optIdx !== -1 ? optIdx : 0;
+                          }
+                        }
+                      });
+                    } else if (mcqQuestions?.length > 0) {
+                      mcqQuestions.forEach((q, idx) => {
+                        const raw = selectedAnswers[q.id || idx];
+                        if (raw !== undefined && raw !== null && raw !== "") {
+                          if (typeof raw === "number") {
+                            formatted[q.id || idx] = raw;
+                          } else if (typeof raw === "string") {
+                            const optIdx = ["A", "B", "C", "D"].indexOf(raw.trim().toUpperCase());
+                            formatted[q.id || idx] = optIdx !== -1 ? optIdx : 0;
+                          }
+                        }
+                      });
+                    }
+                    await handleSubmitQuiz(formatted);
+                  }
+                };
+
                 return (
                   <div className="space-y-6">
                     {/* Aptitude Formal Assessment Gateway (Closed until started) */}
@@ -1478,11 +1522,7 @@ export const TopicDetailPage = () => {
                             {quizMode === "timed" && !isTestSubmitted ? (
                               <button
                                 type="button"
-                                onClick={() => {
-                                  setIsTestSubmitted(true);
-                                  setIsTimerRunning(false);
-                                  setQuizMode("browse");
-                                }}
+                                onClick={handleMcqAssessmentSubmit}
                                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-subtle cursor-pointer"
                               >
                                 <CheckCircle2 className="h-3.5 w-3.5" />
@@ -1752,11 +1792,7 @@ export const TopicDetailPage = () => {
 
                                   <button
                                     type="button"
-                                    onClick={() => {
-                                      setIsTestSubmitted(true);
-                                      setIsTimerRunning(false);
-                                      setQuizMode("browse");
-                                    }}
+                                    onClick={handleMcqAssessmentSubmit}
                                     className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-subtle cursor-pointer"
                                   >
                                     <CheckCircle2 className="h-3.5 w-3.5" />

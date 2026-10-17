@@ -117,9 +117,27 @@ const submitTopicQuiz = async (req, res) => {
     const review = [];
 
     // 3. Score each question and construct review
-    for (const q of questions) {
-      const userSelected = answers[q.id] !== undefined ? Number(answers[q.id]) : null;
-      const isCorrect = userSelected !== null && userSelected === q.correct_option_index;
+    for (let idx = 0; idx < questions.length; idx++) {
+      const q = questions[idx];
+      let userSelected =
+        answers[q.id] !== undefined
+          ? answers[q.id]
+          : answers[idx] !== undefined
+          ? answers[idx]
+          : null;
+
+      if (typeof userSelected === "string" && /^[A-D]$/i.test(userSelected.trim())) {
+        userSelected = ["A", "B", "C", "D"].indexOf(userSelected.trim().toUpperCase());
+      } else if (userSelected !== null && userSelected !== undefined && userSelected !== "") {
+        userSelected = Number(userSelected);
+      } else {
+        userSelected = null;
+      }
+
+      const isCorrect =
+        userSelected !== null &&
+        !isNaN(userSelected) &&
+        userSelected === q.correct_option_index;
 
       if (isCorrect) {
         score++;
