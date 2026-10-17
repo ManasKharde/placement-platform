@@ -700,6 +700,27 @@ export const TopicDetailPage = () => {
     Boolean(topic?.slug && topic.slug.startsWith("aptitude-")) ||
     Boolean(topic?.track_slug && topic.track_slug.includes("aptitude"));
 
+  const pillarStr = `${typeof topic?.pillar === "string" ? topic.pillar : topic?.pillar?.name || ""} ${topic?.pillar?.key || ""}`.toLowerCase();
+  const trackStr = `${typeof topic?.track === "string" ? topic.track : topic?.track_name || topic?.track?.name || ""} ${topic?.track_slug || topic?.track?.slug || ""}`.toLowerCase();
+
+  const isCoreCS = Boolean(
+    !isAptitude &&
+    (pillarKey === "cs" ||
+      pillarStr.includes("cs fundamentals") ||
+      pillarStr.includes("core computer science") ||
+      trackStr.includes("core-computer-science") ||
+      trackStr.includes("core computer science") ||
+      trackStr === "core cs" ||
+      trackStr === "core" ||
+      pillarStr === "core" ||
+      ((trackStr.includes("core") || pillarStr.includes("core")) &&
+        (trackStr.includes("cs") ||
+          trackStr.includes("computer science") ||
+          pillarStr.includes("cs") ||
+          pillarStr.includes("computer science") ||
+          pillarKey === "cs")))
+  );
+
   const isInterviewQATopic =
     !isMcqEvaluationTopic &&
     (topic?.track_slug === "javascript-mastery" ||
@@ -1091,10 +1112,9 @@ export const TopicDetailPage = () => {
                 })()}
 
                 {/* 2. Interactive Target Practice Problems / Interview Q&As / Timed Evaluation Suite */}
-                {/* Render Timed Evaluation Suite only for Core Computer Science, never for Aptitude */}
-                {isMcqEvaluationTopic ? (
-                  !isAptitude && (
-                    <div className="bg-surface rounded-3xl border border-brand-200/80 dark:border-brand-900/50 shadow-card p-5 sm:p-6 space-y-4">
+                {/* Render Timed Evaluation Suite strictly for Core Computer Science; omit for Frontend, React & Aptitude */}
+                {isCoreCS && isMcqEvaluationTopic ? (
+                  <div className="bg-surface rounded-3xl border border-brand-200/80 dark:border-brand-900/50 shadow-card p-5 sm:p-6 space-y-4">
                     <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
                       <div className="flex items-center gap-2">
                         <Zap className="h-4 w-4 text-brand-600" />
@@ -1177,8 +1197,7 @@ export const TopicDetailPage = () => {
                       </div>
                     </div>
                   </div>
-                )
-              ) : !isAptitude ? (
+                ) : !isAptitude ? (
                   <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-5 sm:p-6 space-y-4">
                     <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
                       <div className="flex items-center gap-2">
@@ -1391,9 +1410,13 @@ export const TopicDetailPage = () => {
                 let scenarioTotal = 0;
 
                 mcqQuestions.forEach((q, idx) => {
-                  const userAns = selectedAnswers[q.id] || selectedAnswers[idx];
+                  const qKey = q.id || idx;
+                  const userAns = selectedAnswers[qKey];
                   const correctAns = getCorrectAnswerLetter(q);
-                  const isCorrect = userAns === correctAns;
+                  const isCorrect =
+                    userAns === correctAns ||
+                    (typeof userAns === "number" &&
+                      (["A", "B", "C", "D"][userAns] === correctAns || userAns === q.correct_index));
                   const cat = (q.category || "").toLowerCase();
 
                   if (cat.includes("theory")) {
@@ -1407,7 +1430,7 @@ export const TopicDetailPage = () => {
                     if (isCorrect) scenarioCorrect++;
                   }
 
-                  if (!userAns) {
+                  if (userAns === undefined || userAns === null || userAns === "") {
                     mcqUnattempted++;
                   } else if (isCorrect) {
                     mcqCorrect++;
@@ -1418,7 +1441,9 @@ export const TopicDetailPage = () => {
 
                 const mcqPercentage = mcqTotal > 0 ? Math.round((mcqCorrect / mcqTotal) * 100) : 0;
                 const isTestPassed = mcqPercentage >= 70;
-                const answeredCount = Object.keys(selectedAnswers).length;
+                const answeredCount = Object.keys(selectedAnswers).filter(
+                  (k) => selectedAnswers[k] !== undefined && selectedAnswers[k] !== null && selectedAnswers[k] !== ""
+                ).length;
                 const currentQuestion = mcqQuestions[activeQuestionIndex] || mcqQuestions[0];
 
                 return (
@@ -1430,10 +1455,10 @@ export const TopicDetailPage = () => {
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
                               <Zap className="h-3.5 w-3.5" />
-                              <span>Timed Evaluation Test</span>
+                              <span>{isCoreCS ? "Timed Evaluation Test" : "Practical Evaluation Assessment"}</span>
                             </span>
                             <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
-                              Moderate to Hard (Placement & Competitive Exam Standard)
+                              {isCoreCS ? "Moderate to Hard (Placement & Competitive Exam Standard)" : "Practical & Architecture Assessment Standard"}
                             </span>
                             <span className="text-xs text-secondary-text bg-background px-2.5 py-0.5 rounded-full border border-border-subtle">
                               {mcqTotal} Questions • {defaultTestMinutes} Mins
@@ -1444,11 +1469,13 @@ export const TopicDetailPage = () => {
                             {topic.title}
                           </h2>
                           <p className="text-xs sm:text-sm text-secondary-text max-w-2xl leading-relaxed">
-                            Placement & Competitive Exam evaluation covering theoretical concepts, numerical shortcuts, and analytical problem solving.
+                            {isCoreCS
+                              ? "Placement & Competitive Exam evaluation covering theoretical concepts, numerical shortcuts, and analytical problem solving."
+                              : "Comprehensive practical evaluation covering syntax, architecture, implementation patterns, and industry best practices."}
                           </p>
 
                           {/* Breakdown Badges */}
-                          {!isAptitude && (
+                          {isCoreCS && !isAptitude && (
                             <div className="flex items-center gap-2 pt-1 flex-wrap">
                               <span className="text-xs font-semibold px-2.5 py-1 rounded-xl bg-blue-50 text-blue-700 border border-blue-200">
                                 📘 {theoryTotal || Math.ceil(mcqTotal * 0.5)} Theory & Concepts
@@ -1616,12 +1643,16 @@ export const TopicDetailPage = () => {
                           </div>
                           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                             {mcqQuestions.map((q, idx) => {
-                              const isAnswered = selectedAnswers[q.id] !== undefined || selectedAnswers[idx] !== undefined;
+                              const qKey = q.id || idx;
+                              const isAnswered =
+                                selectedAnswers[qKey] !== undefined &&
+                                selectedAnswers[qKey] !== null &&
+                                selectedAnswers[qKey] !== "";
                               const isActive = activeQuestionIndex === idx;
 
                               return (
                                 <button
-                                  key={q.id || idx}
+                                  key={qKey}
                                   type="button"
                                   onClick={() => setActiveQuestionIndex(idx)}
                                   className={`h-8 w-8 sm:h-9 sm:w-9 rounded-xl text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${isActive
@@ -1640,7 +1671,8 @@ export const TopicDetailPage = () => {
 
                         {/* Active Question Card */}
                         {currentQuestion && (() => {
-                          const currentAns = selectedAnswers[currentQuestion.id] || selectedAnswers[activeQuestionIndex];
+                          const currentQKey = currentQuestion.id || activeQuestionIndex;
+                          const currentAns = selectedAnswers[currentQKey];
 
                           return (
                             <div className="space-y-5 pt-2">
@@ -1685,15 +1717,18 @@ export const TopicDetailPage = () => {
                                 {(currentQuestion.options || []).map((opt, optIdx) => {
                                   const optLetter = getOptionLetter(opt, optIdx);
                                   const optText = getOptionText(opt);
-                                  const isSelected = currentAns === optLetter;
+                                  const isSelected =
+                                    currentAns === optLetter ||
+                                    currentAns === optIdx ||
+                                    currentAns === String(optIdx);
 
                                   return (
-                                    <div
+                                    <label
                                       key={optIdx}
                                       onClick={() => {
                                         setSelectedAnswers((prev) => ({
                                           ...prev,
-                                          [currentQuestion.id]: optLetter,
+                                          [currentQKey]: optLetter,
                                         }));
                                       }}
                                       className={`p-4 rounded-2xl border transition-all flex items-center gap-3.5 cursor-pointer select-none ${isSelected
@@ -1701,6 +1736,19 @@ export const TopicDetailPage = () => {
                                           : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300"
                                         }`}
                                     >
+                                      <input
+                                        type="radio"
+                                        name={`question-${currentQKey}`}
+                                        id={`question-${currentQKey}-opt-${optIdx}`}
+                                        checked={Boolean(isSelected)}
+                                        onChange={() => {
+                                          setSelectedAnswers((prev) => ({
+                                            ...prev,
+                                            [currentQKey]: optLetter,
+                                          }));
+                                        }}
+                                        className="sr-only"
+                                      />
                                       <div
                                         className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${isSelected
                                             ? "bg-indigo-600 text-white shadow-sm"
@@ -1714,7 +1762,7 @@ export const TopicDetailPage = () => {
                                           ? optText.text || optText.label || optText.title || JSON.stringify(optText)
                                           : String(optText)}
                                       </span>
-                                    </div>
+                                    </label>
                                   );
                                 })}
                               </div>
@@ -1865,19 +1913,23 @@ export const TopicDetailPage = () => {
                         {/* Full Vertical List of Questions */}
                         <div className="space-y-5">
                           {mcqQuestions.map((q, idx) => {
-                            const userAns = selectedAnswers[q.id] || selectedAnswers[idx];
-                            const isExplanationRevealed = isTestSubmitted || mcqRevealedExplanations[q.id];
+                            const qKey = q.id || idx;
+                            const userAns = selectedAnswers[qKey];
+                            const isExplanationRevealed = isTestSubmitted || Boolean(mcqRevealedExplanations[qKey]);
                             const correctAns = getCorrectAnswerLetter(q);
-                            const isUserCorrect = userAns === correctAns;
+                            const isUserCorrect =
+                              userAns === correctAns ||
+                              (typeof userAns === "number" &&
+                                (["A", "B", "C", "D"][userAns] === correctAns || userAns === q.correct_index));
 
                             return (
                               <div
-                                key={q.id || idx}
+                                key={qKey}
                                 id={`q-card-${idx}`}
                                 className={`p-6 sm:p-7 rounded-3xl border transition-all space-y-4 shadow-card ${isTestSubmitted
                                     ? isUserCorrect
                                       ? "bg-emerald-50/20 border-emerald-200"
-                                      : userAns
+                                      : userAns !== undefined && userAns !== null && userAns !== ""
                                         ? "bg-red-50/20 border-red-200"
                                         : "bg-surface border-border-subtle"
                                     : "bg-surface border-border-subtle"
@@ -1912,7 +1964,7 @@ export const TopicDetailPage = () => {
                                     {isTestSubmitted && (
                                       <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 ${isUserCorrect
                                           ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                                          : userAns
+                                          : userAns !== undefined && userAns !== null && userAns !== ""
                                             ? "bg-red-100 text-red-800 border border-red-300"
                                             : "bg-slate-100 text-slate-700 border border-slate-300"
                                         }`}>
@@ -1920,7 +1972,7 @@ export const TopicDetailPage = () => {
                                           <>
                                             <CheckCircle2 className="h-3 w-3" /> Correct
                                           </>
-                                        ) : userAns ? (
+                                        ) : userAns !== undefined && userAns !== null && userAns !== "" ? (
                                           <>
                                             <XCircle className="h-3 w-3" /> Incorrect
                                           </>
@@ -1938,7 +1990,7 @@ export const TopicDetailPage = () => {
                                       onClick={() => {
                                         setMcqRevealedExplanations((prev) => ({
                                           ...prev,
-                                          [q.id]: !prev[q.id],
+                                          [qKey]: !prev[qKey],
                                         }));
                                       }}
                                       className="flex items-center gap-1 text-xs font-bold text-brand-600 hover:text-brand-700 cursor-pointer"
@@ -1959,11 +2011,14 @@ export const TopicDetailPage = () => {
                                   {(q.options || []).map((opt, optIdx) => {
                                     const optLetter = getOptionLetter(opt, optIdx);
                                     const optText = getOptionText(opt);
-                                    const isSelected = userAns === optLetter;
+                                    const isSelected =
+                                      userAns === optLetter ||
+                                      userAns === optIdx ||
+                                      userAns === String(optIdx);
                                     const correctAns = getCorrectAnswerLetter(q);
                                     const isCorrect = (typeof opt === "object" && opt !== null && opt.isCorrect !== undefined)
                                       ? Boolean(opt.isCorrect)
-                                      : optLetter === correctAns;
+                                      : optLetter === correctAns || optIdx === q.correct_index;
 
                                     let optClass = "bg-background/60 border-border-subtle hover:border-brand-200 hover:bg-background";
                                     let badge = null;
@@ -1991,23 +2046,43 @@ export const TopicDetailPage = () => {
                                     }
 
                                     return (
-                                      <div
+                                      <label
                                         key={optIdx}
                                         onClick={() => {
                                           if (isTestSubmitted) return;
                                           setSelectedAnswers((prev) => ({
                                             ...prev,
-                                            [q.id]: optLetter,
+                                            [qKey]: optLetter,
                                           }));
                                           if (quizMode === "browse") {
                                             setMcqRevealedExplanations((prev) => ({
                                               ...prev,
-                                              [q.id]: true,
+                                              [qKey]: true,
                                             }));
                                           }
                                         }}
                                         className={`p-3.5 sm:p-4 rounded-2xl border text-xs sm:text-sm flex items-center justify-between gap-3 cursor-pointer select-none transition-all ${optClass}`}
                                       >
+                                        <input
+                                          type="radio"
+                                          name={`question-${qKey}`}
+                                          id={`question-${qKey}-opt-${optIdx}`}
+                                          checked={Boolean(isSelected)}
+                                          onChange={() => {
+                                            if (isTestSubmitted) return;
+                                            setSelectedAnswers((prev) => ({
+                                              ...prev,
+                                              [qKey]: optLetter,
+                                            }));
+                                            if (quizMode === "browse") {
+                                              setMcqRevealedExplanations((prev) => ({
+                                                ...prev,
+                                                [qKey]: true,
+                                              }));
+                                            }
+                                          }}
+                                          className="sr-only"
+                                        />
                                         <div className="flex items-center gap-3 min-w-0">
                                           <div className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${isSelected
                                               ? "bg-brand-600 text-white"
@@ -2024,7 +2099,7 @@ export const TopicDetailPage = () => {
                                           </span>
                                         </div>
                                         {badge}
-                                      </div>
+                                      </label>
                                     );
                                   })}
                                 </div>
@@ -2096,11 +2171,12 @@ export const TopicDetailPage = () => {
                         </div>
                         <div className="flex items-center gap-2 flex-wrap">
                           {quizData.questions.map((q, idx) => {
-                            const isAnswered = selectedAnswers[q.id] !== undefined;
+                            const qId = q.id || idx;
+                            const isAnswered = selectedAnswers[qId] !== undefined;
                             const isActive = activeQuestionIdx === idx;
                             return (
                               <button
-                                key={q.id}
+                                key={qId}
                                 type="button"
                                 onClick={() => setActiveQuestionIdx(idx)}
                                 className={`h-9 w-9 rounded-xl text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${isActive
@@ -2120,7 +2196,8 @@ export const TopicDetailPage = () => {
                       {/* Current Question View */}
                       {quizData.questions[activeQuestionIdx] && (() => {
                         const currentQ = quizData.questions[activeQuestionIdx];
-                        const selectedOption = selectedAnswers[currentQ.id];
+                        const currentQId = currentQ.id || activeQuestionIdx;
+                        const selectedOption = selectedAnswers[currentQId];
                         const optionLetters = ["A", "B", "C", "D"];
 
                         return (
@@ -2140,14 +2217,22 @@ export const TopicDetailPage = () => {
                                 const isSelected = selectedOption === optIdx;
 
                                 return (
-                                  <div
+                                  <label
                                     key={optIdx}
-                                    onClick={() => handleSelectOption(currentQ.id, optIdx)}
+                                    onClick={() => handleSelectOption(currentQId, optIdx)}
                                     className={`p-4 rounded-2xl border transition-all flex items-center gap-3.5 cursor-pointer select-none ${isSelected
                                       ? "bg-brand-50/70 border-brand-400 ring-1 ring-brand-300 shadow-subtle"
                                       : "bg-background/60 border-border-subtle hover:border-brand-200 hover:bg-background"
                                       }`}
                                   >
+                                    <input
+                                      type="radio"
+                                      name={`question-${currentQId}`}
+                                      id={`quiz-question-${currentQId}-opt-${optIdx}`}
+                                      checked={Boolean(isSelected)}
+                                      onChange={() => handleSelectOption(currentQId, optIdx)}
+                                      className="sr-only"
+                                    />
                                     <div
                                       className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${isSelected
                                         ? "bg-brand-600 text-white"
@@ -2166,7 +2251,7 @@ export const TopicDetailPage = () => {
                                         ? optText.text || optText.label || optText.title || JSON.stringify(optText)
                                         : String(optText)}
                                     </span>
-                                  </div>
+                                  </label>
                                 );
                               })}
                             </div>
