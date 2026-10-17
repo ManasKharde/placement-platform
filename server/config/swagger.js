@@ -10,28 +10,47 @@ const options = {
     },
     servers: [
       {
+        url: "https://placement-preparation-platform-x14q.onrender.com/api",
+        description: "Production Server (Render)",
+      },
+      {
         url: "http://localhost:3000/api",
-        description: "Development Server",
+        description: "Local Development Server",
       },
     ],
     components: {
       securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+          description: "Enter your JWT token directly or with Bearer prefix",
+        },
         cookieAuth: {
           type: "apiKey",
           in: "cookie",
-          name: "token", // Must match your cookie name in res.cookie('token', ...)
+          name: "accessToken",
+          description: "HTTP-only cookie authentication using accessToken or accesstoken",
         },
       },
     },
     security: [
       {
+        bearerAuth: [],
+      },
+      {
         cookieAuth: [],
       },
     ],
   },
-  apis: ["./routes/*.js"],
+  apis: [
+    "./routes/*.js",
+    "./routes/**/*.js",
+    "./server/routes/*.js",
+    "./server/routes/**/*.js",
+  ],
 };
 
 const swaggerSpec = swaggerJSDoc(options);
 
-module.exports = swaggerSpec;
+module.exports = swaggerSpec;
