@@ -390,6 +390,7 @@ export const TopicDetailPage = () => {
   const [mcqTimeLeft, setMcqTimeLeft] = useState(3600); // 60 minutes for 50 questions
   const [mcqIsTestSubmitted, setMcqIsTestSubmitted] = useState(false);
   const [mcqRevealedExplanations, setMcqRevealedExplanations] = useState({});
+  const [isAssessmentStarted, setIsAssessmentStarted] = useState(false);
 
   // Quiz Engine State
   const [quizData, setQuizData] = useState(null);
@@ -480,6 +481,7 @@ export const TopicDetailPage = () => {
       setMcqIsTimerRunning(false);
       setMcqIsTestSubmitted(false);
       setMcqRevealedExplanations({});
+      setIsAssessmentStarted(false);
     }
   }, [topicId]);
 
@@ -1197,132 +1199,6 @@ export const TopicDetailPage = () => {
                       </div>
                     </div>
                   </div>
-                ) : !isAptitude ? (
-                  <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-5 sm:p-6 space-y-4">
-                    <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
-                      <div className="flex items-center gap-2">
-                        {isInterviewQATopic ? (
-                          <HelpCircle className="h-4 w-4 text-brand-600" />
-                        ) : (
-                          <Terminal className="h-4 w-4 text-purple-600" />
-                        )}
-                        <h3 className="text-xs font-bold text-primary-text uppercase tracking-wider">
-                          {isInterviewQATopic ? "Key Interview Questions" : "Target Practice Problems"}
-                        </h3>
-                      </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
-                        {topic.practice_items?.length > 0
-                          ? `${topic.practice_items.filter((prob, idx) => checkedTaskIds.has(`prob_${prob.problemId || prob.id || idx}`)).length} / ${topic.practice_items.length} Done`
-                          : "0 / 0 Done"}
-                      </span>
-                    </div>
-
-                    {topic.practice_items?.length > 0 ? (
-                      <div className="space-y-2.5">
-                        {topic.practice_items.map((prob, pIdx) => {
-                          const taskKey = `prob_${prob.problemId || prob.id || pIdx}`;
-                          const isTaskChecked = checkedTaskIds.has(taskKey);
-                          const hasExternalUrl = Boolean(
-                            (typeof prob.url === "string" && prob.url.trim().startsWith("http")) ||
-                            (typeof prob.link === "string" && prob.link.trim().startsWith("http")) ||
-                            (typeof prob.external_url === "string" && prob.external_url.trim().startsWith("http"))
-                          );
-                          const externalUrl = prob.url || prob.link || prob.external_url;
-                          const isGfg = prob.platform === "GeeksforGeeks" || (externalUrl && externalUrl.includes("geeksforgeeks.org"));
-
-                          return (
-                            <div
-                              key={prob.id || pIdx}
-                              className={`p-3 rounded-2xl border transition-all flex items-start justify-between gap-3 ${isTaskChecked
-                                ? "bg-emerald-50/50 border-emerald-200"
-                                : "bg-background/60 border-border-subtle hover:border-brand-200"
-                                }`}
-                            >
-                              <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleTask(taskKey)}
-                                  className="shrink-0 mt-0.5 transition-transform active:scale-90 cursor-pointer"
-                                >
-                                  {isTaskChecked ? (
-                                    <CheckCircle2 className="h-4 w-4 text-emerald-600 fill-emerald-100" />
-                                  ) : (
-                                    <Circle className="h-4 w-4 text-secondary-text" />
-                                  )}
-                                </button>
-                                <div
-                                  className={`min-w-0 flex-1 ${!hasExternalUrl ? "cursor-pointer" : ""}`}
-                                  onClick={!hasExternalUrl ? () => setActiveTab("practice") : undefined}
-                                >
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <h4
-                                      className={`text-xs font-bold ${isTaskChecked
-                                        ? "line-through text-emerald-900 opacity-80"
-                                        : "text-primary-text"
-                                        }`}
-                                    >
-                                      {prob.problemId && !prob.problemId.startsWith("gfg") ? `#${prob.problemId} ` : ""}{prob.title || prob.name}
-                                    </h4>
-                                    <span
-                                      className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full ${prob.difficulty === "Easy"
-                                        ? "bg-emerald-100 text-emerald-800"
-                                        : prob.difficulty === "Medium"
-                                          ? "bg-amber-100 text-amber-800"
-                                          : "bg-red-100 text-red-800"
-                                        }`}
-                                    >
-                                      {prob.difficulty || "Easy"}
-                                    </span>
-                                  </div>
-                                  {(prob.description || prob.answer) && (
-                                    <p className="text-[10px] text-secondary-text mt-0.5 line-clamp-1">
-                                      {prob.description || prob.answer}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-
-                              {hasExternalUrl ? (
-                                <a
-                                  href={externalUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface border border-border-subtle hover:bg-background text-[11px] font-bold text-primary-text transition-all shrink-0 hover:border-brand-300"
-                                  title={`Solve on ${prob.platform || (externalUrl.includes("mongopractice.online") ? "MongoPractice" : (isGfg ? "GeeksforGeeks" : "LeetCode"))}`}
-                                >
-                                  <span>
-                                    {prob.platform ||
-                                      (externalUrl.includes("mongopractice.online")
-                                        ? "MongoPractice"
-                                        : isGfg
-                                          ? "GFG"
-                                          : "LeetCode")}
-                                  </span>
-                                  <ExternalLink className="h-3 w-3 text-secondary-text" />
-                                </a>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => setActiveTab("practice")}
-                                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-brand-50 border border-brand-200 hover:bg-brand-100 text-[11px] font-bold text-brand-700 transition-all shrink-0 cursor-pointer"
-                                  title="View full answer in Practical Evaluation"
-                                >
-                                  <span>Answer</span>
-                                  <ArrowRight className="h-3 w-3 text-brand-600" />
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="p-4 rounded-2xl bg-background/60 border border-border-subtle text-center">
-                        <p className="text-xs font-semibold text-secondary-text">
-                          Conceptual & Setup Lecture — No coding judge problems required for this topic.
-                        </p>
-                      </div>
-                    )}
-                  </div>
                 ) : null}
 
                 {/* 3. Recommended Documentation & Guides */}
@@ -1448,8 +1324,93 @@ export const TopicDetailPage = () => {
 
                 return (
                   <div className="space-y-6">
-                    {/* 1. Header Banner & Mode Controls */}
-                    <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-6 sm:p-8 space-y-5">
+                    {/* Aptitude Formal Assessment Gateway (Closed until started) */}
+                    {isAptitude && !isAssessmentStarted ? (
+                      <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-6 sm:p-8 space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
+                                <Award className="h-3.5 w-3.5" />
+                                <span>Formal Assessment Gateway</span>
+                              </span>
+
+                              <span className="text-xs text-secondary-text bg-background px-2.5 py-0.5 rounded-full border border-border-subtle flex items-center gap-1">
+                                <Clock className="h-3 w-3 text-brand-600" />
+                                ⏱ {defaultTestMinutes} Mins
+                              </span>
+
+                              <span className="text-xs text-secondary-text bg-background px-2.5 py-0.5 rounded-full border border-border-subtle flex items-center gap-1">
+                                <Target className="h-3 w-3 text-emerald-600" />
+                                🎯 70% to Pass
+                              </span>
+
+                              <span className="text-xs text-secondary-text bg-background px-2.5 py-0.5 rounded-full border border-border-subtle">
+                                {mcqTotal} Questions
+                              </span>
+
+                              {/* Previous Attempt Badge */}
+                              {(isTestSubmitted || quizData?.latest_attempt || isCompleted) && (
+                                <span
+                                  className={`text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 ${
+                                    (isTestSubmitted ? isTestPassed : quizData?.latest_attempt?.passed || isCompleted)
+                                      ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                      : "bg-red-100 text-red-800 border border-red-300"
+                                  }`}
+                                >
+                                  {(isTestSubmitted ? isTestPassed : quizData?.latest_attempt?.passed || isCompleted) ? (
+                                    <>
+                                      <CheckCircle2 className="h-3 w-3 text-emerald-700" />
+                                      <span>Passed{isTestSubmitted ? ` (${mcqPercentage}%)` : quizData?.latest_attempt ? ` (${quizData.latest_attempt.percentage}%)` : ""}</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <XCircle className="h-3 w-3 text-red-700" />
+                                      <span>Failed{isTestSubmitted ? ` (${mcqPercentage}%)` : quizData?.latest_attempt ? ` (${quizData.latest_attempt.percentage}%)` : ""}</span>
+                                    </>
+                                  )}
+                                </span>
+                              )}
+                            </div>
+
+                            <h2 className="text-xl font-bold text-primary-text">
+                              {topic.title || "Topic Assessment"}
+                            </h2>
+                            <p className="text-xs text-secondary-text leading-relaxed max-w-2xl">
+                              {topic.short_description ||
+                                "Test your understanding under timed interview conditions. Achieving the passing threshold automatically marks this topic as completed."}
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            id="start-assessment-button"
+                            onClick={() => {
+                              setIsAssessmentStarted(true);
+                              setQuizMode("timed");
+                              setActiveQuestionIndex(0);
+                              if (!isTestSubmitted) {
+                                if (timeLeft === 0) setTimeLeft(defaultTestSeconds);
+                              } else {
+                                setSelectedAnswers({});
+                                setTimeLeft(defaultTestSeconds);
+                                setIsTestSubmitted(false);
+                              }
+                              setIsTimerRunning(true);
+                            }}
+                            className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold transition-all shadow-subtle hover:shadow-hover cursor-pointer shrink-0"
+                          >
+                            <Zap className="h-4 w-4" />
+                            <span>
+                              {isTestSubmitted || quizData?.latest_attempt || isCompleted ? "Retake Assessment" : "Start Assessment"}
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        {/* 1. Header Banner & Mode Controls */}
+                        <div className="bg-surface rounded-3xl border border-border-subtle shadow-card p-6 sm:p-8 space-y-5">
                       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 pb-5 border-b border-border-subtle">
                         <div className="space-y-2">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -2120,9 +2081,11 @@ export const TopicDetailPage = () => {
                         </div>
                       </div>
                     )}
-                  </div>
-                );
-              })() : (
+                  </>
+                )}
+              </div>
+            );
+          })() : (
                 <>
                   {/* ────────────────────────────────────────────────────────── */}
                   {/* VIEW 1: ACTIVE QUIZ RUNNER                                 */}
