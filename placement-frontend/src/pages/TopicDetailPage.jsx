@@ -2942,7 +2942,8 @@ export const TopicDetailPage = () => {
                           </div>
 
                           <div className="space-y-3">
-                            {(topic.practice_items?.length > 0 && topic.practice_items[0]?.question
+                            {(topic.practice_items?.length > 0 &&
+                            (topic.practice_items[0]?.question || topic.practice_items[0]?.title)
                               ? topic.practice_items
                               : [
                                 {
@@ -2965,15 +2966,22 @@ export const TopicDetailPage = () => {
                                 },
                               ]
                             ).map((qa, qIdx) => {
-                              const isExpanded = expandedQuestionIdx === qIdx;
+                              const itemKey = qa.id || qIdx;
+                              const isExpanded = expandedQuestionIdx === itemKey;
+                              const questionText = qa.question || qa.title;
+                              const answerText = qa.answer || qa.description;
+                              const difficultyText =
+                                qa.difficulty ||
+                                (qa.type === "quiz" ? "Technical Screening" : "Core Screening");
+
                               return (
                                 <div
-                                  key={qIdx}
+                                  key={itemKey}
                                   className="rounded-2xl border border-border-subtle overflow-hidden bg-background/50 transition-all"
                                 >
                                   <div
                                     onClick={() =>
-                                      setExpandedQuestionIdx(isExpanded ? null : qIdx)
+                                      setExpandedQuestionIdx(isExpanded ? null : itemKey)
                                     }
                                     className="p-4 flex items-center justify-between gap-4 cursor-pointer hover:bg-background select-none"
                                   >
@@ -2981,11 +2989,11 @@ export const TopicDetailPage = () => {
                                       <HelpCircle className="h-4 w-4 text-brand-600 shrink-0" />
                                       <div>
                                         <h4 className="text-xs sm:text-sm font-bold text-primary-text">
-                                          {qa.question}
+                                          {questionText}
                                         </h4>
-                                        {qa.difficulty && (
+                                        {difficultyText && (
                                           <span className="text-[10px] font-semibold text-secondary-text mt-0.5 inline-block">
-                                            {qa.difficulty}
+                                            {difficultyText}
                                           </span>
                                         )}
                                       </div>
@@ -3010,7 +3018,7 @@ export const TopicDetailPage = () => {
                                       <p className="font-medium text-primary-text mb-1">
                                         Interview Answer Framework:
                                       </p>
-                                      {qa.answer}
+                                      <SimpleMarkdown content={typeof answerText === "string" ? answerText : String(answerText || "")} />
                                     </div>
                                   )}
                                 </div>
